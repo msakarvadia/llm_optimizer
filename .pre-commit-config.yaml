@@ -17,6 +17,8 @@ repos:
     rev: v2.4.2
     hooks:
       - id: codespell
+        exclude: \.ipynb$
+        language: system
   - repo: 'https://github.com/astral-sh/ruff-pre-commit'
     rev: v0.15.14
     hooks:
@@ -24,9 +26,12 @@ repos:
         args:
           - '--fix'
           - '--exit-non-zero-on-fix'
+        language: system
       - id: ruff-format
+        language: system
   - repo: 'https://github.com/pre-commit/mirrors-mypy'
     rev: v2.1.0
     hooks:
       - id: mypy
         additional_dependencies: []
+        language: system
