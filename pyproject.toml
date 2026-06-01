@@ -3,9 +3,9 @@ requires = ["setuptools>=77.0", "setuptools_scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "foobar"
+name = "llm_optimizer"
 authors = [
-    {name = "foobar author", email = "foobar@foobar.com"},
+    {name = "Mansi Sakarvadia", email = "sakarvadia@uchicago.com"},
 ]
 description = "Foobar example package"
 dynamic = ["version"]
@@ -20,12 +20,13 @@ classifiers = [
 ]
 dependencies = [
     "requests",
+    "openai",
 ]
 
 [project.urls]
-Homepage = "https://github.com/foobar-author/foobar"
+Homepage = "https://github.com/sakarvadia/llm_optimizer"
 Documentation = "https://foobar.readthedocs.io"
-Source = "https://github.com/foobar-author/foobar"
+Source = "https://github.com/sakarvadia/llm_optimizer"
 
 [project.optional-dependencies]
 dev = [
