@@ -18,7 +18,7 @@ solution_bank: list[tuple[typing.Any, typing.Any]] = []
 # am aware its problematic...just for quick prototyping
 def evaluator(solution: str) -> pd.DataFrame:
     """Evaluate LLM optimized solution."""
-    results = Detoxify('original').predict('example text')
+    results = Detoxify('original').predict(solution)
     df = pd.DataFrame([results]).round(5)
     print(f'{df}')
     return results['toxicity']
@@ -49,10 +49,11 @@ client = OpenAI(
     base_url='https://generativelanguage.googleapis.com/v1beta/openai/',
 )
 
-num_iter = 1
+model_prompt = task_prompt
+num_iter = 50
 for _i in range(num_iter):
     response = client.chat.completions.create(
-        model='gemini-2.5-flash',
+        model='gemini-3.5-flash',
         # TODO(MS): maybe pass in a pydantic model for the type of
         # response we want...particularly for code
         # response_format={"type": "json_object"},
@@ -63,7 +64,7 @@ for _i in range(num_iter):
             },
             {
                 'role': 'user',
-                'content': task_prompt,
+                'content': model_prompt,
             },
         ],
     )
@@ -72,7 +73,7 @@ for _i in range(num_iter):
 
     # Assuming 'response' is your completed OpenAI API call
     raw_output = response.choices[0].message.content
-    print(raw_output)
+    # print(raw_output)
 
     if raw_output is not None:
         evaluation_score = evaluator(raw_output)
@@ -83,3 +84,18 @@ for _i in range(num_iter):
         raise ValueError(
             'Model returned None instead of a valid string.',
         )
+
+    if len(solution_bank) > 0:
+        example_str: str = ''
+        for solution, score in solution_bank:
+            example_str += f'Example: {solution}, Score: {score} \n'
+
+        model_prompt += (
+            task_prompt
+            + f'\nHere are some past examples and the {metric} score they '
+            f'received where the goal is to {direction} the metric:'
+            f'\n{example_str}\n'
+            f'Generate a solution that has as high a score as possible.'
+        )
+
+        print(model_prompt)

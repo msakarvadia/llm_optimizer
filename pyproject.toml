@@ -21,6 +21,8 @@ classifiers = [
 dependencies = [
     "requests",
     "openai",
+    "detoxify",
+    "pandas",
 ]
 
 [project.urls]
