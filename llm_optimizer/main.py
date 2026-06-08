@@ -4,12 +4,16 @@ from __future__ import annotations
 
 from llm_optimizer.optimizer import LLMOptimizer
 from llm_optimizer.solution_bank import SolutionBank
-from llm_optimizer.tasks.tweet_engagement import TweetEngagement
+from llm_optimizer.tasks.minimize_function import MinimizeFunction
 
 # instanitate task
-tweet_thread = """@CNN: 'House averts government shutdown'
-@user: 'I wish people cheered when I do my job'"""
-task = TweetEngagement(tweet_thread=tweet_thread)
+
+# tweet_thread = """@CNN: 'House averts government shutdown'
+# @user: 'I wish people cheered when I do my job'"""
+# task = TweetEngagement(tweet_thread=tweet_thread)
+
+task = MinimizeFunction()
+
 
 # instantiate solution bank
 solution_bank = SolutionBank()
