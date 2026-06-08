@@ -153,7 +153,7 @@ for _i in range(num_iter):
         for solution, score in solution_bank:
             example_str += f'Example: {solution}\n Score: {score}\n'
 
-        model_prompt += (
+        model_prompt = (
             task_prompt
             + f'\nHere are some past examples and the {metric} score they '
             f'received where the goal is to {direction} the metric:'
