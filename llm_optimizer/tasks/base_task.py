@@ -14,9 +14,12 @@ class Task(ABC):
     """
 
     @abstractmethod
-    def __init__(self, task_description: str) -> None:
+    def __init__(self, metric: str, direction: str, **kwargs: Any) -> None:
         """Initialize task."""
-        self.task_description = task_description
+        self.task_description = None
+        self.solution_description = None
+        self.metric = metric
+        self.direction = direction
 
     @abstractmethod
     def evaluate(self, solution: str) -> Any:
