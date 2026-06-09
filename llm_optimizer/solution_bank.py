@@ -7,7 +7,10 @@ from __future__ import annotations
 
 import json
 import os
+import random
 from typing import Any
+
+import numpy as np
 
 
 class SolutionBank:
@@ -37,10 +40,10 @@ class SolutionBank:
 
     def get_solutions(
         self,
-        n: int,
-        order: str,
-        shuffle: bool,
-        noise: bool,
+        n: int = -1,
+        order: str = 'ascending',
+        shuffle: bool = False,
+        noise: bool = False,
     ) -> list[tuple[Any, Any]]:
         """Grab (sub)set of past solutions.
 
@@ -48,22 +51,65 @@ class SolutionBank:
 
         n : # of solutions to be sampled
 
-        order: ascending/descenting/random
-          (order of generated solutions before sampling)
+        order: ascending/descending/random
+          (order of iteration IDs before sampling)
 
         shuffle: boolean; shuffle order of sampled solutions
 
         noise: add gaussian noise to the reward
             noise gaussian mean=0, std_dev = of current rewards
         """
-        # TODO(MS): put in fancy retrieval logic here!!
-        solution_bank: list[tuple[Any, Any]] = []
-        for i in range(self.__len__()):
-            solution = self.bank[i]['solution']
-            score = self.bank[i]['score']
-            solution_bank.append((solution, score))
+        # Generate iteration indices in the requested chronological order
+        indices = list(range(len(self.bank)))
+        if order == 'descending':
+            indices.reverse()
+        elif order == 'random':
+            random.shuffle(indices)
+        # 'ascending' keeps the natural sequential range intact
 
-        return solution_bank
+        # Gather entries matching the requested sequence
+        raw_items = []
+        for i in indices:
+            raw_items.append((self.bank[i]['solution'], self.bank[i]['score']))
+
+        # Inject Gaussian noise if enabled (ignoring non-numerical scores)
+        # NOTE(MS): design decision is the noise is adaptive
+        # to the current spread in rewards
+        if noise:
+            numerical_scores = [
+                float(score)
+                for _, score in raw_items
+                if isinstance(score, (int | float))
+                and not isinstance(score, bool)
+            ]
+
+            if len(numerical_scores) > 1:
+                std_dev = float(np.std(numerical_scores))
+
+                noised_items = []
+                for sol, score in raw_items:
+                    if isinstance(score, (int | float)) and not isinstance(
+                        score,
+                        bool,
+                    ):
+                        noised_items.append(
+                            (
+                                sol,
+                                float(score) + random.gauss(0.0, std_dev),
+                            ),
+                        )
+                    else:
+                        noised_items.append((sol, score))
+                raw_items = noised_items
+
+        # Limit to N samples (safely bounding the request)
+        sampled_items = raw_items[:n]
+
+        # Optional secondary shuffle (primarily for ascending/descending)
+        if shuffle:
+            random.shuffle(sampled_items)
+
+        return sampled_items
 
     def __len__(self) -> int:
         """Total # of past solutions generated."""

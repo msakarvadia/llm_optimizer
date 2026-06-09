@@ -19,9 +19,21 @@ task = MinimizeFunction()
 solution_bank = SolutionBank()
 
 # instantiate optimizer
-llm_optimizer = LLMOptimizer(task=task, solution_bank=solution_bank)
+n = 5
+noise = True
+shuffle = False
+order = 'ascending'
+llm_optimizer = LLMOptimizer(
+    task=task,
+    solution_bank=solution_bank,
+    n=n,
+    noise=noise,
+    shuffle=shuffle,
+    order=order,
+)
 
-llm_optimizer.optimize()
+num_iter = 50
+llm_optimizer.optimize(num_iter=num_iter)
 
 experiment_dir = 'temp_results'
 solution_bank.save_to_json(experiment_dir)

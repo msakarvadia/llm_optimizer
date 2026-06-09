@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from typing import Any
 
 from openai import OpenAI
 
@@ -16,7 +17,12 @@ class LLMOptimizer:
     state include: task, solution_score pairs, stopping criteria
     """
 
-    def __init__(self, task: Task, solution_bank: SolutionBank) -> None:
+    def __init__(
+        self,
+        task: Task,
+        solution_bank: SolutionBank,
+        **kwargs: Any,
+    ) -> None:
         """Init optimizer."""
         self.task = task
         self.solution_bank = solution_bank
@@ -33,6 +39,12 @@ class LLMOptimizer:
             base_url='https://generativelanguage.googleapis.com/v1beta/openai/',
         )
 
+        # NOTE(MS): variables to manage in-context examples/rewards
+        self.n = kwargs['n']
+        self.noise = kwargs['noise']
+        self.shuffle = kwargs['shuffle']
+        self.order = kwargs['order']
+
     def get_meta_prompt(self) -> str:
         """Setup meta prompt for optimizer.."""
         task_prompt = (
@@ -42,7 +54,12 @@ class LLMOptimizer:
         )
 
         meta_prompt = task_prompt
-        solution_bank = self.solution_bank.get_solutions()
+        solution_bank = self.solution_bank.get_solutions(
+            self.n,
+            self.noise,
+            self.shuffle,
+            self.order,
+        )
         if len(self.solution_bank) > 0:
             example_blocks = []
             for solution, score in solution_bank:
@@ -95,11 +112,10 @@ class LLMOptimizer:
             )
         return raw_output
 
-    def optimize(self) -> None:
+    def optimize(self, num_iter: int = 5) -> None:
         """Optimization loop for task."""
         # TODO(MS): impl convergence criteria
 
-        num_iter = 5
         for _i in range(num_iter):
             meta_prompt = self.get_meta_prompt()
             solution = self.prompt_lm(meta_prompt)
