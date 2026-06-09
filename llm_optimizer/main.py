@@ -22,3 +22,6 @@ solution_bank = SolutionBank()
 llm_optimizer = LLMOptimizer(task=task, solution_bank=solution_bank)
 
 llm_optimizer.optimize()
+
+experiment_dir = 'temp_results'
+solution_bank.save_to_json(experiment_dir)

@@ -6,6 +6,7 @@ may also manage meta-data associated w/ pairs.
 from __future__ import annotations
 
 import json
+import os
 from typing import Any
 
 
@@ -20,7 +21,11 @@ class SolutionBank:
 
     def save_to_json(self, path: str) -> None:
         """Add solution/score pairs to bank."""
-        with open(path, 'w', encoding='utf-8') as json_file:
+        # Ensure the directory exists; do nothing if it already does
+        os.makedirs(path, exist_ok=True)
+
+        full_path = os.path.join(path, 'solution_bank.json')
+        with open(full_path, 'w', encoding='utf-8') as json_file:
             json.dump(self.bank, json_file, indent=4)
 
     def add_solution_score_pair(self, solution: str, score: Any) -> None:
