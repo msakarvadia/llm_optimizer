@@ -35,10 +35,26 @@ class SolutionBank:
         self.bank[next_iter]['solution'] = solution
         self.bank[next_iter]['score'] = score
 
-    def get_solutions(self) -> list[tuple[Any, Any]]:
+    def get_solutions(
+        self,
+        n: int,
+        order: str,
+        shuffle: bool,
+        noise: bool,
+    ) -> list[tuple[Any, Any]]:
         """Grab (sub)set of past solutions.
 
         can also grab associated scores/metadata here
+
+        n : # of solutions to be sampled
+
+        order: ascending/descenting/random
+          (order of generated solutions before sampling)
+
+        shuffle: boolean; shuffle order of sampled solutions
+
+        noise: add gaussian noise to the reward
+            noise gaussian mean=0, std_dev = of current rewards
         """
         # TODO(MS): put in fancy retrieval logic here!!
         solution_bank: list[tuple[Any, Any]] = []
