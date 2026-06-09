@@ -5,6 +5,7 @@ may also manage meta-data associated w/ pairs.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 
@@ -19,6 +20,8 @@ class SolutionBank:
 
     def save_to_json(self, path: str) -> None:
         """Add solution/score pairs to bank."""
+        with open(path, 'w', encoding='utf-8') as json_file:
+            json.dump(self.bank, json_file, indent=4)
 
     def add_solution_score_pair(self, solution: str, score: Any) -> None:
         """Add solution/score pairs to bank."""
