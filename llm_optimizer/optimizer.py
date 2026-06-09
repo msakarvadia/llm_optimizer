@@ -44,16 +44,22 @@ class LLMOptimizer:
         meta_prompt = task_prompt
         solution_bank = self.solution_bank.get_solutions()
         if len(self.solution_bank) > 0:
-            example_str: str = ''
-
+            example_blocks = []
             for solution, score in solution_bank:
-                example_str += f'Example: {solution}, Score: {score} \n'
+                block = (
+                    f'### Past Example\n'
+                    f'Solution:\n{solution.strip()}\n'
+                    f'{self.task.metric}: {score}'
+                )
+                example_blocks.append(block)
+
+            example_str = '\n\n'.join(example_blocks)
 
             meta_prompt = (
                 task_prompt
                 + f'\nHere are some past examples and the {self.task.metric}'
                 f'score they received where the goal is to:'
-                f'{self.task.direction} the metric\n{example_str}\n'
+                f'{self.task.direction} the metric\n\n{example_str}\n\n'
                 f'Generate a solution that has as high a score as possible.'
             )
 
