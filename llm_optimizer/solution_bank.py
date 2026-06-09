@@ -17,6 +17,9 @@ class SolutionBank:
         #          {'solution':solution, 'score':score, 'metadata':...}]
         self.bank: dict[int, dict[str, Any]] = {}
 
+    def save_to_json(self, path: str) -> None:
+        """Add solution/score pairs to bank."""
+
     def add_solution_score_pair(self, solution: str, score: Any) -> None:
         """Add solution/score pairs to bank."""
         next_iter = self.__len__()
