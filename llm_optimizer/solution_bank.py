@@ -46,5 +46,4 @@ class SolutionBank:
 
     def __len__(self) -> int:
         """Total # of past solutions generated."""
-        print('LEN OF SOLUTION BANK IS:', len(self.bank))
         return len(self.bank)
