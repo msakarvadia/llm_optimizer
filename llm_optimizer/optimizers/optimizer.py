@@ -7,7 +7,7 @@ from typing import Any
 
 from openai import OpenAI
 
-from llm_optimizer.solution_bank import SolutionBank
+from llm_optimizer.optimizers.solution_bank import SolutionBank
 from llm_optimizer.tasks.base_task import Task
 
 
