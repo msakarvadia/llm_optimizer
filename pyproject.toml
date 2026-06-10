@@ -23,6 +23,9 @@ dependencies = [
     "openai",
     "detoxify",
     "pandas",
+    "openevolve",
+    "gepa",
+    "litellm",
 ]
 
 [project.urls]
