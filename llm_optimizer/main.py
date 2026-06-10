@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from llm_optimizer.optimizer import LLMOptimizer
-from llm_optimizer.solution_bank import SolutionBank
+from llm_optimizer.optimizers.optimizer import LLMOptimizer
+from llm_optimizer.optimizers.solution_bank import SolutionBank
 from llm_optimizer.tasks.minimize_function import MinimizeFunction
 
 # instanitate task
