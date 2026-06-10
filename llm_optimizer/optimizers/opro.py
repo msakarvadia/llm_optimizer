@@ -10,10 +10,11 @@ from typing import Any
 import numpy as np
 from openai import OpenAI
 
+from llm_optimizer.optimizers.base_optimizer import Optimizer
 from llm_optimizer.tasks.base_task import Task
 
 
-class OPROOptimizer:
+class OPROOptimizer(Optimizer):
     """LLM optimizer.
 
     # base on OPRO: https://arxiv.org/abs/2309.03409
@@ -25,6 +26,9 @@ class OPROOptimizer:
     def __init__(
         self,
         task: Task,
+        noise: bool = False,
+        num_past_sol: int = 5,
+        num_parallel_search: int = 1,
         **kwargs: Any,
     ) -> None:
         """Init optimizer."""
@@ -44,8 +48,9 @@ class OPROOptimizer:
         )
 
         # NOTE(MS): variables to manage in-context examples/rewards
-        self.n = kwargs['n']
-        self.noise = kwargs['noise']
+        self.n = num_past_sol
+        self.noise = noise
+        self.num_parallel_search = num_parallel_search
         self.shuffle = kwargs['shuffle']
         self.order = kwargs['order']
 
@@ -59,10 +64,10 @@ class OPROOptimizer:
 
         meta_prompt = task_prompt
         solution_bank = self.solution_bank.get_solutions(
-            self.n,
-            self.noise,
-            self.shuffle,
-            self.order,
+            n=self.n,
+            order=self.order,
+            shuffle=self.shuffle,
+            noise=self.noise,
         )
         if len(self.solution_bank) > 0:
             example_blocks = []

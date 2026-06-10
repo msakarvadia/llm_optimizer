@@ -43,7 +43,7 @@ class Optimizer(ABC):
         self.task = task
 
     @abstractmethod
-    def optimize(self, solution: str) -> Any:
+    def optimize(self, num_iter: int) -> Any:
         """Custom optimization logic to search for best soluiton.
 
         Should save history of solution/score pairs
