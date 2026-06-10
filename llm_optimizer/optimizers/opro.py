@@ -185,11 +185,8 @@ class SolutionBank:
         """
         # Generate iteration indices in the requested chronological order
         indices = list(range(len(self.bank)))
-        if order == 'descending':
-            indices.reverse()
-        elif order == 'random':
+        if order == 'random':
             random.shuffle(indices)
-        # 'ascending' keeps the natural sequential range intact
 
         # Gather entries matching the requested sequence
         raw_items = []
@@ -226,8 +223,12 @@ class SolutionBank:
                         noised_items.append((sol, score))
                 raw_items = noised_items
 
-        # Limit to N samples (safely bounding the request)
-        sampled_items = raw_items[:n]
+        # Limit to the most rescent (or random) n samples
+        sampled_items = raw_items[-n:]
+
+        if order == 'descending':
+            # reverse the order of the list
+            sampled_items = sampled_items[::-1]
 
         # Optional secondary shuffle (primarily for ascending/descending)
         if shuffle:
