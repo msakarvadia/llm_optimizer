@@ -218,9 +218,11 @@ class SolutionBank:
 
         # NOTE(MS): Remove raw_items that have duplicate solutions
         # To keep the FIRST occurrence, reverse the list before converting:
-        # NOTE(MS): not using since isn't native to OPRO
-        # raw_items = list(dict(reversed(raw_items)).items())
-        # raw_items.reverse()
+        # not native to opro
+        # NOTE(MS): using since it doesn't make sense to
+        # noise the same thing differently
+        raw_items = list(dict(reversed(raw_items)).items())
+        raw_items.reverse()
 
         # Limit to the most rescent (or random) n samples
         sampled_items = raw_items[-n:]
