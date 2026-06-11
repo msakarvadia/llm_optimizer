@@ -28,6 +28,7 @@ if __name__ == '__main__':
         default=5,
         help="""Number of past examples to keep in history
             analog of "momentum" in traditional optimization.
+            n=0 means keep full history
             """,
     )
     parser.add_argument(

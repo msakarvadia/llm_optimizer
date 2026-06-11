@@ -35,4 +35,4 @@ class TweetEngagement(Task):
         print(f'{df}')
         print(f'{solution=}')
         print('-' * 40)
-        return results['toxicity']
+        return float(results['toxicity'])

@@ -133,7 +133,12 @@ class OPROOptimizer(Optimizer):
             print(meta_prompt)
 
         # NOTE(MS): temporarily save solution bank
-        experiment_dir = 'temp_results'
+        experiment_dir = (
+            f'temp_results_dir/{self.task.solution_description}'
+            f'_{self.n}_{self.noise}/'
+        )
+
+        experiment_dir.replace('.', '')
         self.solution_bank.save_to_json(experiment_dir)
 
 
@@ -151,6 +156,7 @@ class SolutionBank:
         # Ensure the directory exists; do nothing if it already does
         os.makedirs(path, exist_ok=True)
 
+        print(self.bank)
         full_path = os.path.join(path, 'solution_bank.json')
         with open(full_path, 'w', encoding='utf-8') as json_file:
             json.dump(self.bank, json_file, indent=4)
@@ -213,7 +219,6 @@ class SolutionBank:
         # NOTE(MS): Remove raw_items that have duplicate solutions
         # To keep the FIRST occurrence, reverse the list before converting:
         # NOTE(MS): not using since isn't native to OPRO
-        # ...maybe will add in later
         # raw_items = list(dict(reversed(raw_items)).items())
         # raw_items.reverse()
 
