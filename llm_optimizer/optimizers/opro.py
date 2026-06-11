@@ -185,8 +185,6 @@ class SolutionBank:
         """
         # Generate iteration indices in the requested chronological order
         indices = list(range(len(self.bank)))
-        if order == 'random':
-            random.shuffle(indices)
 
         # Gather entries matching the requested sequence
         raw_items = []
@@ -196,39 +194,31 @@ class SolutionBank:
         # Inject Gaussian noise if enabled (ignoring non-numerical scores)
         # NOTE(MS): design decision is the noise is adaptive
         # to the current spread in rewards
-        if noise:
-            numerical_scores = [
-                float(score)
-                for _, score in raw_items
-                if isinstance(score, (int | float))
-                and not isinstance(score, bool)
-            ]
+        if noise > 0:
+            numerical_scores = [float(score) for _, score in raw_items]
 
             if len(numerical_scores) > 1:
                 std_dev = float(np.std(numerical_scores))
 
                 noised_items = []
                 for sol, score in raw_items:
-                    if isinstance(score, (int | float)) and not isinstance(
-                        score,
-                        bool,
-                    ):
-                        noised_items.append(
-                            (
-                                sol,
-                                float(score) + random.gauss(0.0, std_dev),
-                            ),
-                        )
-                    else:
-                        noised_items.append((sol, score))
+                    noised_items.append(
+                        (
+                            sol,
+                            float(score) + random.gauss(0.0, noise * std_dev),
+                        ),
+                    )
                 raw_items = noised_items
+
+        # NOTE(MS): Remove raw_items that have duplicate solutions
+        # To keep the FIRST occurrence, reverse the list before converting:
+        # NOTE(MS): not using since isn't native to OPRO
+        # ...maybe will add in later
+        # raw_items = list(dict(reversed(raw_items)).items())
+        # raw_items.reverse()
 
         # Limit to the most rescent (or random) n samples
         sampled_items = raw_items[-n:]
-
-        if order == 'descending':
-            # reverse the order of the list
-            sampled_items = sampled_items[::-1]
 
         # Optional secondary shuffle (primarily for ascending/descending)
         if shuffle:

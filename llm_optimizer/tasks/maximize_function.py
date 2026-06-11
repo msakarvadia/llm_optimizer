@@ -36,7 +36,11 @@ class MaximizeFunction(Task):
             coeff = 0.5
             x = x - 0.78
             vertical_shift = 2
-            return -1 * (x**4 - 3 * x**2 + coeff * x + vertical_shift)
+            solution = -1 * (x**4 - 3 * x**2 + coeff * x + vertical_shift)
+            print('-' * 40)
+            print(f'{solution=}')
+            print('-' * 40)
+            return solution
         except Exception:
             # TODO(MS): turn this into side channel info for opro??
             # return str(error)
