@@ -31,5 +31,8 @@ class TweetEngagement(Task):
         """Evaluate LLM optimized solution."""
         results = Detoxify('original').predict(solution)
         df = pd.DataFrame([results]).round(5)
+        print('-' * 40)
         print(f'{df}')
+        print(f'{solution=}')
+        print('-' * 40)
         return results['toxicity']

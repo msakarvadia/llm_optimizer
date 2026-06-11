@@ -32,6 +32,7 @@ class GEPAOptimizer(Optimizer):
         """Init optimizer."""
         self.task = task
 
+        # NOTE(MS): for litellm, need to add the 'gemini/' prefix
         self.LLM_MODEL = 'gemini/gemini-3.5-flash'
 
         # NOTE(MS): variables to manage in-context examples/rewards
