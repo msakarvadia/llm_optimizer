@@ -46,6 +46,13 @@ class GEPAOptimizer(Optimizer):
         """Optimization loop for task."""
         # TODO(MS): impl convergence criteria
 
+        import numpy as np
+        from gepa.strategies.candidate_selector import (
+            TopKParetoCandidateSelector,
+        )
+
+        rng = np.random.default_rng(seed=42)
+
         self.config = GEPAConfig(
             engine=EngineConfig(
                 # run_dir=log_dir,
@@ -54,6 +61,12 @@ class GEPAOptimizer(Optimizer):
                 # max_workers=64,
                 # cache_evaluation=True,
                 # track_best_outputs=True,
+                # NOTE(K) defaults to 5...need to change this?
+                # https://github.com/gepa-ai/gepa/releases
+                # https://github.com/gepa-ai/gepa/pull/246
+                candidate_selection_strategy=TopKParetoCandidateSelector(
+                    k=self.n, rng=rng
+                ),
             ),
             reflection=ReflectionConfig(
                 reflection_lm=self.LLM_MODEL,
