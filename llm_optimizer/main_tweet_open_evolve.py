@@ -63,7 +63,7 @@ task_description = f"""The below thread was posted on Twitter.
 direction = 'maximize'
 metric = 'engagement'
 task_prompt = f"""{task_description} Your goal is to {direction} {metric}.
-Output only the bare minimum text to reach the objective goal.
+ Output only the bare minimum text to reach the objective goal.
 """
 # TODO(MS):  Need to visualize the actual prompt being fed into the LLM, I want to see how many past examples are shown and the format of the score and also I want to see what the system prompt is.
 config.prompt.system_message = task_prompt#"You are a master tweet writer. All the tweets you write are about roses."
