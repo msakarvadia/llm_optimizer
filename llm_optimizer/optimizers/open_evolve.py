@@ -100,7 +100,10 @@ class OpenEvolveOptimizer(Optimizer):
         self.num_parallel_search = num_parallel_search
         self.shuffle = kwargs['shuffle']
         self.order = kwargs['order']
-        self.config.database.population_size = num_past_sol
+        self.config.database.archive_size = num_past_sol
+
+        # This is the default ratio that comes pre-defined w/ open-evolve
+        self.config.database.population_size = 3.5 * num_past_sol
 
     def optimize(self, num_iter: int = 5) -> None:
         """Optimization loop for task."""

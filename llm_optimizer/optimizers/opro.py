@@ -86,7 +86,7 @@ class OPROOptimizer(Optimizer):
                 + f'\nHere are some past examples and the {self.task.metric}'
                 f'score they received where the goal is to:'
                 f'{self.task.direction} the metric\n\n{example_str}\n\n'
-                f'Generate a new {self.task.task_description} that is'
+                f'Generate a new {self.task.solution_description} that is'
                 f' different from the old ones that has as high a score'
                 f' as possible.'
             )
