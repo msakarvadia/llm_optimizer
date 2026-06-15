@@ -126,7 +126,7 @@ class OpenEvolveOptimizer(Optimizer):
             initial_program=f"""
             # REGISTRY_ID: {instance_id}
             # EVOLVE-BLOCK-START
-        {self.task.example_solution}
+        {self.task.seed_candidate}
         # EVOLVE-BLOCK-END
         """,
             evaluator=evaluator,

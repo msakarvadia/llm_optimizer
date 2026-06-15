@@ -26,7 +26,7 @@ class TweetEngagement(Task):
         self.solution_description = 'tweet'
         self.metric = metric
         self.direction = direction
-        self.example_solution = 'placeholder tweet'
+        self.seed_candidate = 'placeholder tweet'
 
     def evaluate(self, solution: str) -> tuple[float, dict[str, Any]]:
         """Evaluate LLM optimized solution."""

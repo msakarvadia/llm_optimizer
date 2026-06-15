@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import random
 from typing import Any
 
 from gepa.optimize_anything import EngineConfig
@@ -46,12 +47,12 @@ class GEPAOptimizer(Optimizer):
         """Optimization loop for task."""
         # TODO(MS): impl convergence criteria
 
-        import numpy as np
         from gepa.strategies.candidate_selector import (
             TopKParetoCandidateSelector,
         )
 
-        rng = np.random.default_rng(seed=42)
+        # rng = np.random.default_rng(seed=42)
+        rng = random.Random(42)
 
         self.config = GEPAConfig(
             engine=EngineConfig(
