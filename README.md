@@ -3,6 +3,15 @@
 
 ## Installation
 
+Use `venv ` to install linters/code qualtiy tools.
+
+```
+python -m venv venv
+source venv/bin/activate
+pip install pre-commit
+pre-commit install
+```
+
 Package management via `uv`:
 ```
 uv sync
