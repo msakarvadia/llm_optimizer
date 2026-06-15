@@ -13,6 +13,9 @@ from openai import OpenAI
 # Dict of solution reward pairs
 solution_bank: list[tuple[typing.Any, typing.Any]] = []
 
+level = 1 # @param {type:"slider", min:1, max:3, step:1}
+problem_id = 1 # @param {type:"slider", min:1, max:100, step:1}
+backend = "cuda"
 
 # Evaluator
 # NOTE(MS): rn using a fake "toxicity" score as a proxy for engagement
@@ -23,15 +26,18 @@ def evaluator(solution: str) -> pd.DataFrame:
     current_dir = os.getcwd()
 
     # move into Kernel bench
-    os.chdir("/scratch/mansisak/KernelBench")
+    #os.chdir("/scratch/mansisak/KernelBench")
 
     # evaluate the current solution vs. baseline!!
     command = [
     "uv",
     "run",
     "python",
-    "scripts/run_and_check.py", 
-    "ref_origin=local",
+    "../KernelBench/scripts/run_and_check.py", 
+    f"backend={backend}",
+    "ref_origin=kernelbench",
+    f"level={level}",
+    f"problem_id={problem_id}",
     "ref_arch_src_path=/scratch/mansisak/llm_optimizer/llm_optimizer/ref_arch.py", # TODO(MS): change path
     "kernel_src_path=/scratch/mansisak/llm_optimizer/llm_optimizer/generated_arch.py", # TODO(MS): change path
     "eval_mode=local"
@@ -88,10 +94,42 @@ def extract_first_code(output_string: str, code_language_types: list[str]) -> st
     return None
 
 # Prompt fed to LLM optimizer
-task_description = 'You write custom CUDA operators to replace the pytorch operators in the given architecture to get speedups.\n\nYou have complete freedom to choose the set of operators you want to replace. You may make the decision to replace some operators with custom CUDA operators and leave others unchanged. You may replace multiple operators with custom implementations, consider operator fusion opportunities (combining multiple operators into a single kernel, for example, combining matmul+relu), or algorithmic changes (such as online softmax). You are only limited by your imagination.\n\nHere\'s an example to show you the syntax of inline embedding custom CUDA operators in PyTorch:\n\nExample:\n\nInput architecture:\n\nimport torch\nimport torch.nn as nn\nimport torch.nn.functional as F\n\n\nclass Model(nn.Module):\n    def __init__(self) -> None:\n        super().__init__()\n\n    def forward(self, a, b):\n        return a + b\n\n\ndef get_inputs():\n    # randomly generate input tensors based on the model architecture\n    a = torch.randn(1, 128).cuda()\n    b = torch.randn(1, 128).cuda()\n    return [a, b]\n\n\ndef get_init_inputs():\n    # randomly generate tensors required for initialization based on the model architecture\n    return []\n\n\nOptimized with CUDA operators:\n\nimport torch\nimport torch.nn as nn\nimport torch.nn.functional as F\nfrom torch.utils.cpp_extension import load_inline\n\n# Define the custom CUDA kernel for element-wise addition\nelementwise_add_source = """\n#include <torch/extension.h>\n#include <cuda_runtime.h>\n\n__global__ void elementwise_add_kernel(const float* a, const float* b, float* out, int size) {\n    int idx = blockIdx.x * blockDim.x + threadIdx.x;\n    if (idx < size) {\n        out[idx] = a[idx] + b[idx];\n    }\n}\n\ntorch::Tensor elementwise_add_cuda(torch::Tensor a, torch::Tensor b) {\n    auto size = a.numel();\n    auto out = torch::zeros_like(a);\n\n    const int block_size = 256;\n    const int num_blocks = (size + block_size - 1) / block_size;\n\n    elementwise_add_kernel<<<num_blocks, block_size>>>(a.data_ptr<float>(), b.data_ptr<float>(), out.data_ptr<float>(), size);\n\n    return out;\n}\n"""\n\nelementwise_add_cpp_source = (\n    "torch::Tensor elementwise_add_cuda(torch::Tensor a, torch::Tensor b);"\n)\n\n# Compile the inline CUDA code for element-wise addition\nelementwise_add = load_inline(\n    name="elementwise_add",\n    cpp_sources=elementwise_add_cpp_source,\n    cuda_sources=elementwise_add_source,\n    functions=["elementwise_add_cuda"],\n    verbose=True,\n    extra_cflags=[""],\n    extra_ldflags=[""],\n)\n\n\nclass ModelNew(nn.Module):\n    def __init__(self) -> None:\n        super().__init__()\n        self.elementwise_add = elementwise_add\n\n    def forward(self, a, b):\n        return self.elementwise_add.elementwise_add_cuda(a, b)\n\nYou are given the following architecture:\n\n\nimport torch\nimport torch.nn as nn\n\nclass Model(nn.Module):\n    """\n    Simple model that performs a single square matrix multiplication (C = A * B)\n    """\n    def __init__(self):\n        super(Model, self).__init__()\n    \n    def forward(self, A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:\n        """\n        Performs the matrix multiplication.\n\n        Args:\n            A (torch.Tensor): Input matrix A of shape (N, N).\n            B (torch.Tensor): Input matrix B of shape (N, N).\n\n        Returns:\n            torch.Tensor: Output matrix C of shape (N, N).\n        """\n        return torch.matmul(A, B)\n\nN = 2048 * 2\n\ndef get_inputs():\n    A = torch.rand(N, N)\n    B = torch.rand(N, N)\n    return [A, B]\n\ndef get_init_inputs():\n    return []  # No special initialization inputs needed\n\nNote: The kernels should be optimized for FP32 (32-bit floating point) precision.\n\nOptimize the architecture named Model with custom CUDA operators! Name your optimized output architecture ModelNew. Output the new code in codeblocks. Please generate real code, NOT pseudocode, make sure the code compiles and is fully functional. Just output the new model code, no other text, and NO testing code! The output of the model will be stored in generated_arch.py.\n'
+
+from kernelbench.prompt_constructor_toml import get_prompt_for_backend
+
+# Here is an example of a constructed context with hardware context
+# This injects specs (memory bandwidth, cache size) from kernelbench/prompts/hardware/gpu_specs.py
+# helping the LLM optimize tile sizes for your specific GPU.
+
+from kernelbench.dataset import construct_kernelbench_dataset
+
+
+# Unified interface - same code for huggingface and local!
+dataset = construct_kernelbench_dataset(
+    level=level,
+    source="huggingface",
+    dataset_name="ScalingIntelligence/KernelBench",
+)
+
+print(f"{problem_id=}")
+problem = dataset.get_problem_by_id(problem_id)
+target_kernel_reference = dataset.get_problem_by_id(problem_id).code
+target_kernel_name = dataset.get_problem_by_id(problem_id).name
+
+print(target_kernel_name)
+print(target_kernel_reference)
+print(f"A"*40)
+
+task_description = get_prompt_for_backend(
+    ref_arch_src=target_kernel_reference,
+    backend=backend,   # You can also try "triton" or "tilelang" or "cuda" here!
+    option="one_shot", # <--- show example of generation format via minimum example
+    #include_hardware=True, # <--- Enable hardware specific context
+    #gpu_name="T4"          # <--- Specify your GPU (matches keys in gpu_specs.py)
+)
 direction = 'maximize'
 metric = 'speedup'
-task_prompt = f"""{task_description} Your goal is to preserve correctness and {direction} {metric}."""
+task_prompt = f"""{task_description} Your goal is to preserve correctness and {direction} {metric}. Do not use wrappers. Do not write dummy kernels to past staic checkers!!! Nothing like: __global__ void dummy_kernel_to_pass_static_checks(). Write custom kernels."""
 
 print(f'{task_prompt}')
 
@@ -110,7 +148,7 @@ client = OpenAI(
 )
 
 model_prompt = task_prompt
-num_iter = 5
+num_iter = 10
 for _i in range(num_iter):
     response = client.chat.completions.create(
         model='gemini-3.5-flash',
