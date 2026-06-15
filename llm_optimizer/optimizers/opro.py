@@ -71,11 +71,12 @@ class OPROOptimizer(Optimizer):
         )
         if len(self.solution_bank) > 0:
             example_blocks = []
-            for solution, score in solution_bank:
+            for solution, score, extra_info in solution_bank:
                 block = (
                     f'### Past Example\n'
                     f'Solution:\n{solution.strip()}\n'
-                    f'{self.task.metric}: {score}'
+                    f'{self.task.metric}: {score}\n'
+                    f'Additional meta-data: {extra_info}'
                 )
                 example_blocks.append(block)
 
@@ -130,8 +131,12 @@ class OPROOptimizer(Optimizer):
         for _i in range(num_iter):
             meta_prompt = self.get_meta_prompt()
             solution = self.prompt_lm(meta_prompt)
-            score = self.task.evaluate(solution)
-            self.solution_bank.add_solution_score_pair(solution, score)
+            score, extra_info = self.task.evaluate(solution)
+            self.solution_bank.add_solution_score_pair(
+                solution,
+                score,
+                extra_info,
+            )
             print(meta_prompt)
 
         # NOTE(MS): temporarily save solution bank
@@ -163,12 +168,18 @@ class SolutionBank:
         with open(full_path, 'w', encoding='utf-8') as json_file:
             json.dump(self.bank, json_file, indent=4)
 
-    def add_solution_score_pair(self, solution: str, score: Any) -> None:
+    def add_solution_score_pair(
+        self,
+        solution: str,
+        score: float,
+        extra_info: dict[str, Any],
+    ) -> None:
         """Add solution/score pairs to bank."""
         next_iter = self.__len__()
         self.bank[next_iter] = {}
         self.bank[next_iter]['solution'] = solution
         self.bank[next_iter]['score'] = score
+        self.bank[next_iter]['extra_info'] = extra_info
 
     def get_solutions(
         self,
@@ -176,7 +187,7 @@ class SolutionBank:
         order: str = 'ascending',
         shuffle: bool = False,
         noise: bool = False,
-    ) -> list[tuple[Any, Any]]:
+    ) -> list[tuple[Any, Any, Any]]:
         """Grab (sub)set of past solutions.
 
         can also grab associated scores/metadata here
@@ -197,23 +208,30 @@ class SolutionBank:
         # Gather entries matching the requested sequence
         raw_items = []
         for i in indices:
-            raw_items.append((self.bank[i]['solution'], self.bank[i]['score']))
+            raw_items.append(
+                (
+                    self.bank[i]['solution'],
+                    self.bank[i]['score'],
+                    self.bank[i]['extra_info'],
+                ),
+            )
 
         # Inject Gaussian noise if enabled (ignoring non-numerical scores)
         # NOTE(MS): design decision is the noise is adaptive
         # to the current spread in rewards
         if noise > 0:
-            numerical_scores = [float(score) for _, score in raw_items]
+            numerical_scores = [float(score) for _, score, _ in raw_items]
 
             if len(numerical_scores) > 1:
                 std_dev = float(np.std(numerical_scores))
 
                 noised_items = []
-                for sol, score in raw_items:
+                for sol, score, extra_info in raw_items:
                     noised_items.append(
                         (
                             sol,
                             float(score) + random.gauss(0.0, noise * std_dev),
+                            extra_info,
                         ),
                     )
                 raw_items = noised_items
@@ -223,8 +241,8 @@ class SolutionBank:
         # not native to opro
         # NOTE(MS): using since it doesn't make sense to
         # noise the same thing differently
-        raw_items = list(dict(reversed(raw_items)).items())
-        raw_items.reverse()
+        # raw_items = list(dict(reversed(raw_items)).items())
+        # raw_items.reverse()
 
         # Limit to the most rescent (or random) n samples
         sampled_items = raw_items[-n:]

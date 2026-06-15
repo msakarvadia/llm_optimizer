@@ -59,8 +59,8 @@ def evaluator(solution_path: str) -> dict[str, float]:
         return {'combined_score': 0.0}
     solution = match.group(1)
 
-    result = current_task.evaluate(solution)
-    return {'combined_score': result}
+    result, extra_info = current_task.evaluate(solution)
+    return {'combined_score': result} | extra_info
 
 
 class OpenEvolveOptimizer(Optimizer):
@@ -100,6 +100,7 @@ class OpenEvolveOptimizer(Optimizer):
         self.num_parallel_search = num_parallel_search
         self.shuffle = kwargs['shuffle']
         self.order = kwargs['order']
+        print(self.config)
         self.config.database.archive_size = num_past_sol
 
         # This is the default ratio that comes pre-defined w/ open-evolve
@@ -125,7 +126,7 @@ class OpenEvolveOptimizer(Optimizer):
             initial_program=f"""
             # REGISTRY_ID: {instance_id}
             # EVOLVE-BLOCK-START
-        This is the starting generic tweet.
+        {self.task.example_solution}
         # EVOLVE-BLOCK-END
         """,
             evaluator=evaluator,

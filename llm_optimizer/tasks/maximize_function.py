@@ -28,12 +28,12 @@ class MaximizeFunction(Task):
         self.solution_description = 'x value'
         self.metric = metric
         self.direction = direction
-        self.direction = 'placeholder solution'
+        self.example_solution = 'placeholder solution'
 
-    def evaluate(self, x: float | str) -> float | str:
+    def evaluate(self, solution: float | str) -> tuple[float, dict[str, Any]]:
         """Evaluate LLM optimized solution."""
         try:
-            x = float(x)
+            x = float(solution)
             coeff = 0.5
             x = x - 0.78
             vertical_shift = 2
@@ -41,8 +41,10 @@ class MaximizeFunction(Task):
             print('-' * 40)
             print(f'{solution=}')
             print('-' * 40)
-            return solution
-        except Exception:
-            # TODO(MS): turn this into side channel info for opro??
-            # return str(error)
-            return -math.inf
+            score = solution
+            error_dict = {}
+        except Exception as error:
+            score = -math.inf
+            error_dict = {'error': error}
+
+        return score, error_dict
