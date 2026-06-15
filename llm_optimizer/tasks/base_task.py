@@ -20,6 +20,7 @@ class Task(ABC):
         self.solution_description: str | None = None
         self.metric = metric
         self.direction = direction
+        self.example_solution = '<placeholder for generated solution>'
 
     @abstractmethod
     def evaluate(self, solution: str) -> Any:

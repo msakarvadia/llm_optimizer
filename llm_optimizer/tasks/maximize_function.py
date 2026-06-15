@@ -28,6 +28,7 @@ class MaximizeFunction(Task):
         self.solution_description = 'x value'
         self.metric = metric
         self.direction = direction
+        self.direction = 'placeholder solution'
 
     def evaluate(self, x: float | str) -> float | str:
         """Evaluate LLM optimized solution."""
