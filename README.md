@@ -47,6 +47,13 @@ I recommend making a few other changes to the repo's setting on GitHub.
 
 ## Installation
 
+Package management via `uv`:
+```
+uv sync
+# to run a python program:
+uv run python <name of file> <--optimion args>
+```
+
 Install via pip:
 ```
 $ pip install foobar
