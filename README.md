@@ -54,21 +54,6 @@ uv sync
 uv run python <name of file> <--optimion args>
 ```
 
-Install via pip:
-```
-$ pip install foobar
-```
-
-For local development:
-```
-$ tox --devenv venv -e py310
-$ pre-commit install
-```
-or
-```
-$ pip install -e .
-```
-
 ## Additional README Sections
 
 ...
