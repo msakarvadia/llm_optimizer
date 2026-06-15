@@ -28,7 +28,7 @@ class TweetEngagement(Task):
         self.direction = direction
         self.example_solution = 'placeholder tweet'
 
-    def evaluate(self, solution: str) -> Any:
+    def evaluate(self, solution: str) -> tuple[float, dict[str, Any]]:
         """Evaluate LLM optimized solution."""
         results = Detoxify('original').predict(solution)
         df = pd.DataFrame([results]).round(5)
@@ -36,4 +36,5 @@ class TweetEngagement(Task):
         print(f'{df}')
         print(f'{solution=}')
         print('-' * 40)
-        return float(results['toxicity'])
+        # NOTE(MS): this won't have meta-data
+        return float(results['toxicity']), {}
