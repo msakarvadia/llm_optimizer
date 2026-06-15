@@ -23,6 +23,10 @@ class Task(ABC):
         self.example_solution = '<placeholder for generated solution>'
 
     @abstractmethod
-    def evaluate(self, solution: str) -> Any:
-        """Custom evaluation logic to 'score' solution for task."""
+    def evaluate(self, solution: str) -> tuple[float, dict[str, Any]]:
+        """Custom evaluation logic to 'score' solution for task.
+
+        must return the primary score being optimized, and
+        a dict with extra info (such as compilation errors etc.)
+        """
         pass
