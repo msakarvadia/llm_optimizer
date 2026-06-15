@@ -65,7 +65,8 @@ class GEPAOptimizer(Optimizer):
                 # https://github.com/gepa-ai/gepa/releases
                 # https://github.com/gepa-ai/gepa/pull/246
                 candidate_selection_strategy=TopKParetoCandidateSelector(
-                    k=self.n, rng=rng
+                    k=self.n,
+                    rng=rng,
                 ),
             ),
             reflection=ReflectionConfig(
@@ -82,7 +83,7 @@ class GEPAOptimizer(Optimizer):
         # NOTE (THIS RETURNS A RESULT)
         optimize_anything(
             # TODO(MS): give a seed candidate to the task definition!!
-            seed_candidate='<starting>',
+            seed_candidate=self.task.seed_candidate,
             evaluator=self.task.evaluate,
             objective=task_prompt,
             config=self.config,
