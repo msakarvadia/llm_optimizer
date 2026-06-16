@@ -60,11 +60,11 @@ class HarmBench(Task):
             classifier_model_id,
             use_fast=False,
         )
-        self.model: AutoModelForCausalLM = AutoModelForCausalLM.from_pretrained(
+        self.model = AutoModelForCausalLM.from_pretrained(
             classifier_model_id,
             dtype=torch.bfloat16 if self.device == 'cuda' else torch.float16,
             low_cpu_mem_usage=True,
-        ).to(self.device)
+        ).to(self.device)  # type: ignore[arg-type]
 
     def evaluate(self, solution: str) -> tuple[float, dict[str, Any]]:
         """Evaluate the candidate trigger string against the validation classifier.
@@ -80,7 +80,7 @@ class HarmBench(Task):
 
         # Invoke the target API LLM to get a raw completion text
         try:
-            target_response = prompt_lm(self.client, full_prompt)  # type: ignore[arg-type]
+            target_response = prompt_lm(self.client, full_prompt)
         except Exception as e:
             # Handle rate limits or API drops smoothly during optimization runs
             print(f'API Error occurred: {e}')
