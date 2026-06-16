@@ -31,6 +31,13 @@ def evaluator(solution_path: str) -> dict[str, float]:
 
     with open(solution_path, encoding='utf-8') as f:
         solution_file_text = f.read()
+    print('SOLUTION PATHvv' * 40)
+    print(solution_path)
+    print('SOLUTION PATH ^^' * 40)
+
+    print('OPEN EVOLVE SOLUTION vv' * 40)
+    print(solution_file_text)
+    print('OPEN EVOLVE SOLUTION ^^' * 40)
 
     # Extract out the registry ID injected right inside the file comment
     # Look for a comment line structured like: # REGISTRY_ID: 140401824103120
@@ -120,6 +127,9 @@ class OpenEvolveOptimizer(Optimizer):
             f'Output only the bare minimum text to reach the objective goal.'
         )
         self.config.prompt.system_message = task_prompt
+        # Force OpenEvolve to handle full-file string rewrites
+        # Needed to unify interface b/w GEPA and openevolve
+        self.config.diff_based_evolution = False
 
         # NOTE(MS): this returns an object
         run_evolution(

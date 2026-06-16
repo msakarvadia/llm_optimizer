@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+from openai import OpenAI
 from sentence_transformers import SentenceTransformer
 
 
@@ -46,3 +47,27 @@ def semantic_similarity(strings: list[str]) -> dict[str, float]:
     }
 
     return semantic_sim_stats
+
+
+def prompt_lm(client: OpenAI, prompt: str) -> str:
+    """Standard LLM api inference call."""
+    response = client.chat.completions.create(
+        model='gemini-3.5-flash',
+        messages=[
+            {
+                'role': 'system',
+                'content': 'You are a helpful assistant.',
+            },
+            {
+                'role': 'user',
+                'content': prompt,
+            },
+        ],
+    )
+    raw_output = response.choices[0].message.content
+    if raw_output is not None:
+        return raw_output
+    else:
+        raise ValueError(
+            'LM api call returned None instead of a valid string.',
+        )

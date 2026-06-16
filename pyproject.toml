@@ -27,6 +27,7 @@ dependencies = [
     "gepa",
     "litellm",
     "kernelbench",
+    "sentence-transformers",
 ]
 
 [project.urls]

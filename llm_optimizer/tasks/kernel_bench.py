@@ -26,16 +26,16 @@ def extract_first_code(
 
     trimmed = output_string.strip()
 
-    print(' trimmed vv' * 40)
-    print(trimmed)
-    print(' trimmed ^^' * 40)
+    # print(' trimmed vv' * 40)
+    # print(trimmed)
+    # print(' trimmed ^^' * 40)
 
     # Extracting the first occurrence of content between backticks
     code_match = re.search(r'```(.*?)```', trimmed, re.DOTALL)
 
-    print(' code match vv' * 40)
-    print(code_match)
-    print(' code match ^^' * 40)
+    # print(' code match vv' * 40)
+    # print(code_match)
+    # print(' code match ^^' * 40)
 
     if code_match:
         # Strip leading and trailing whitespace from the extracted code
@@ -54,7 +54,7 @@ def extract_first_code(
     if 'python' in code_language_types:
         try:
             ast.parse(trimmed)  # Validates syntax without executing code
-            print(' DIRECT PYTHON MATCH**' * 40)
+            # print(' DIRECT PYTHON MATCH**' * 40)
             return trimmed
         except SyntaxError:
             pass  # Not valid Python, handle below or return None
@@ -101,7 +101,6 @@ class KernelBench(Task):
             ' Write custom kernels.'
         )
         self.task_description += extra_instructions
-        print(self.task_description)
 
         self.solution_description = 'kernel'
         self.metric = metric
@@ -138,7 +137,7 @@ class KernelBench(Task):
                 ),
             }
             return speedup, error_dict
-        print('EXTRACTED CODE ' * 40)
+        # print('EXTRACTED CODE ' * 40)
         with open('tmp_generated_kernel.py', 'w') as f:
             f.write(custom_kernel)
         command = [
@@ -188,6 +187,6 @@ class KernelBench(Task):
             speedup = 0.0
             error_dict = {'error': e.stderr}
 
-        print(result)
+        # print(result)
 
         return speedup, error_dict
