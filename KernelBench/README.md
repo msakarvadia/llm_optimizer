@@ -1,3 +1,5 @@
+From: https://github.com/ScalingIntelligence/KernelBench
+
 # KernelBench: Can LLMs Write Efficient GPU Kernels? [ICML '25]
 A benchmark and environment for evaluating LLMs' ability to generate efficient GPU kernels
 
