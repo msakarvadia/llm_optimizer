@@ -138,11 +138,11 @@ def extract_string(input_string: str) -> list[int]:
     for p in input_string.split(','):
         p_str = p.strip()
         try:
-            p_int = int(p_str)  # type: ignore[assignment]
+            p_int: int = int(p_str)
         except ValueError:
             continue
         parsed_list.append(p_int)
-    return parsed_list  # type: ignore[assignment]
+    return parsed_list
 
 
 def solve_tsp(
@@ -158,7 +158,7 @@ def solve_tsp(
     """
     if starting_algorithm == 'nearest_neighbor':
         min_dis = 0.0
-        gt_sol: list[int | float] = [0]
+        gt_sol: list[int] = [0]
         remaining_points = list(range(1, num_points))
         while len(remaining_points) > 0:
             min_p = -1
@@ -183,20 +183,20 @@ def solve_tsp(
         )
         return gt_sol, min_dis
     elif starting_algorithm == 'farthest_insertion':
-        gt_sol = [0]  # type: ignore[no-redef]
+        gt_sol = [0]
         remaining_points = list(range(1, num_points))
         while len(remaining_points) > 0:
             max_p = -1
             max_cur_dis = -1.0
             max_cur_index = -1
             for p in remaining_points:
-                min_cur_dis = -1.0  # type: ignore[assignment]
+                min_cur_dis = -1.0
                 min_cur_index = -1
                 for index in range(1, len(gt_sol) + 1):
                     new_sol = gt_sol[:index] + [p] + gt_sol[index:]
                     cur_dis = evaluate_distance(x, y, new_sol, num_decimals)
                     if min_cur_dis == -1 or cur_dis < min_cur_dis:
-                        min_cur_dis = cur_dis  # type: ignore[assignment]
+                        min_cur_dis = cur_dis
                         min_cur_index = index
                 if max_cur_dis == -1 or min_cur_dis > max_cur_dis:
                     max_p = p
