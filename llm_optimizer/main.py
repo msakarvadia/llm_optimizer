@@ -11,6 +11,7 @@ from llm_optimizer.optimizers.opro import OPROOptimizer
 from llm_optimizer.tasks.harm_bench import HarmBench
 from llm_optimizer.tasks.kernel_bench import KernelBench
 from llm_optimizer.tasks.maximize_function import MaximizeFunction
+from llm_optimizer.tasks.traveling_salesman import TravelingSalesman
 from llm_optimizer.tasks.tweet_engagement import TweetEngagement
 
 if __name__ == '__main__':
@@ -49,13 +50,19 @@ if __name__ == '__main__':
         default=50,
         help="""Number of rounds of optimization.""",
     )
+    parser.add_argument(
+        '--seed',
+        type=int,
+        default=0,  # TODO(MS): make sure this is used
+        help="""Random Seed.""",
+    )
 
     # task args
     parser.add_argument(
         '--task_name',
         type=str,
         default='tweet',
-        choices=['tweet', 'function', 'kernelbench', 'harmbench'],
+        choices=['tweet', 'function', 'kernelbench', 'harmbench', 'tsp'],
         help="""Name of individual task being optimized.""",
     )
 
@@ -79,6 +86,20 @@ if __name__ == '__main__':
         choices=['cuda', 'triton', 'tilelang'],
         help="""KernelBench DSL backend for kernel.""",
     )
+
+    # traveling salesman args
+    parser.add_argument(
+        '--num_points',
+        type=int,
+        default=10,
+        help="""# points on the path.""",
+    )
+    parser.add_argument(
+        '--num_decimals',
+        type=int,
+        default=3,
+        help="""# decimals to report in distance.""",
+    )
     args = parser.parse_args()
 
     tweet_thread = """@CNN: 'House averts government shutdown'
@@ -89,6 +110,11 @@ if __name__ == '__main__':
 
     tasks = {
         'tweet': TweetEngagement(tweet_thread=tweet_thread),
+        'tsp': TravelingSalesman(
+            num_points=args.num_points,
+            num_decimals=args.num_decimals,
+            seed=args.seed,
+        ),
         'function': MaximizeFunction(),
         'harmbench': HarmBench(target_prompt=harm_bench_prompt),
         'kernelbench': KernelBench(

@@ -180,3 +180,7 @@ namespaces = false
 
 [tool.uv.sources]
 kernelbench = { path = "./KernelBench", editable = true }
+
+[[tool.mypy.overrides]]
+module = "llm_optimizer.tasks.traveling_salesman"
+ignore_errors = true
