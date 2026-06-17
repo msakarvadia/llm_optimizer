@@ -53,9 +53,16 @@ class OPROOptimizer(Optimizer):
         self.num_parallel_search = num_parallel_search
         self.shuffle = kwargs['shuffle']
         self.order = kwargs['order']
+        if self.task.seed_candidate:
+            score, extra_info = self.task.evaluate(self.task.seed_candidate)
+            self.solution_bank.add_solution_score_pair(
+                self.task.seed_candidate,
+                score,
+                extra_info,
+            )
 
     def get_meta_prompt(self) -> str:
-        """Setup meta prompt for optimizer.."""
+        """Setup meta prompt for optimizer."""
         task_prompt = (
             f'{self.task.task_description} '
             f'Your goal is to {self.task.direction} {self.task.metric}. '
@@ -85,11 +92,12 @@ class OPROOptimizer(Optimizer):
             meta_prompt = (
                 task_prompt
                 + f'\nHere are some past examples and the {self.task.metric}'
-                f'score they received where the goal is to:'
+                f'score they received where the goal is to '
                 f'{self.task.direction} the metric\n\n{example_str}\n\n'
                 f'Generate a new {self.task.solution_description} that is'
-                f' different from the old ones that has as high a score'
-                f' as possible.'
+                f' different from the old ones to '
+                f'{self.task.direction} the {self.task.metric}'
+                f' as much as possible.'
             )
 
         return meta_prompt
