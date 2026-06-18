@@ -27,10 +27,11 @@ class TweetEngagement(Task):
         self.metric = metric
         self.direction = direction
         self.seed_candidate = 'placeholder tweet'
+        self.model = Detoxify('original')
 
     def evaluate(self, solution: str) -> tuple[float, dict[str, Any]]:
         """Evaluate LLM optimized solution."""
-        results = Detoxify('original').predict(solution)
+        results = self.model.predict(solution)
         df = pd.DataFrame([results]).round(5)
         print('-' * 40)
         print(f'{df}')
