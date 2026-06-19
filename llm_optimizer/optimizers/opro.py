@@ -11,6 +11,9 @@ import numpy as np
 from openai import OpenAI
 
 from llm_optimizer.optimizers.base_optimizer import Optimizer
+from llm_optimizer.optimizers.llm_mutator_library.differential_evolution import (  # noqa
+    DEMutator,
+)
 from llm_optimizer.optimizers.llm_mutator_library.k_in_context import (
     KInContextMutator,
 )
@@ -63,7 +66,9 @@ class OPROOptimizer(Optimizer):
                 score,
                 extra_info,
             )
-        self.mutator = {'kincontext': KInContextMutator()}[kwargs['mutator']]
+        self.mutator = {'kincontext': KInContextMutator(), 'DE': DEMutator()}[
+            kwargs['mutator']
+        ]
 
     def optimize(self, num_iter: int = 5) -> None:
         """Optimization loop for task."""
