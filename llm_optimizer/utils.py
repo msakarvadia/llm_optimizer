@@ -49,10 +49,14 @@ def semantic_similarity(strings: list[str]) -> dict[str, float]:
     return semantic_sim_stats
 
 
-def prompt_lm(client: OpenAI, prompt: str) -> str:
+def prompt_lm(
+    client: OpenAI,
+    prompt: str,
+    model_name: str = 'gemini-3.5-flash',
+) -> str:
     """Standard LLM api inference call."""
     response = client.chat.completions.create(
-        model='gemini-3.5-flash',
+        model=model_name,
         messages=[
             {
                 'role': 'system',
