@@ -9,6 +9,7 @@ from typing import Any
 
 from openai import OpenAI
 
+from llm_optimizer.tasks.base_task import Task
 from llm_optimizer.utils import prompt_lm
 
 
@@ -37,12 +38,17 @@ class Mutator(ABC):
     def get_meta_prompt(
         self,
         past_solutions: list[tuple[Any, Any, Any]],
+        task: Task,
     ) -> str:
         """Prompt to guide the LLM mutation step."""
         pass
 
-    def mutate(self, past_solutions: list[tuple[Any, Any, Any]]) -> str:
+    def mutate(
+        self,
+        past_solutions: list[tuple[Any, Any, Any]],
+        task: Task,
+    ) -> str:
         """Single LLM-based Mutation of parent solutions."""
-        meta_prompt = self.get_meta_prompt(past_solutions)
+        meta_prompt = self.get_meta_prompt(past_solutions, task)
         solution = prompt_lm(self.client, meta_prompt)
         return solution
