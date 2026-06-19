@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import os
-from abc import ABC
-from abc import abstractmethod
 from typing import Any
 
 from openai import OpenAI
@@ -13,7 +11,7 @@ from llm_optimizer.tasks.base_task import Task
 from llm_optimizer.utils import prompt_lm
 
 
-class Mutator(ABC):
+class Mutator:
     """Base class for LLM mutator.
 
     specialized mutators should inherit from this
@@ -34,14 +32,13 @@ class Mutator(ABC):
             base_url='https://generativelanguage.googleapis.com/v1beta/openai/',
         )
 
-    @abstractmethod
     def get_meta_prompt(
         self,
         past_solutions: list[tuple[Any, Any, Any]],
         task: Task,
     ) -> str:
         """Prompt to guide the LLM mutation step."""
-        pass
+        return 'Place holder prompt'
 
     def mutate(
         self,
