@@ -50,5 +50,6 @@ class Mutator(ABC):
     ) -> str:
         """Single LLM-based Mutation of parent solutions."""
         meta_prompt = self.get_meta_prompt(past_solutions, task)
+        print(meta_prompt)
         solution = prompt_lm(self.client, meta_prompt)
         return solution

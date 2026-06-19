@@ -11,6 +11,9 @@ import numpy as np
 from openai import OpenAI
 
 from llm_optimizer.optimizers.base_optimizer import Optimizer
+from llm_optimizer.optimizers.llm_mutator_library.k_in_context import (
+    KInContextMutator,
+)
 from llm_optimizer.tasks.base_task import Task
 
 
@@ -60,92 +63,26 @@ class OPROOptimizer(Optimizer):
                 score,
                 extra_info,
             )
-
-    def get_meta_prompt(self) -> str:
-        """Setup meta prompt for optimizer."""
-        task_prompt = (
-            f'{self.task.task_description} '
-            f'Your goal is to {self.task.direction} {self.task.metric}. '
-            f'Output only the bare minimum text to reach the objective goal.'
-        )
-
-        meta_prompt = task_prompt
-        solution_bank = self.solution_bank.get_solutions(
-            n=self.n,
-            order=self.order,
-            shuffle=self.shuffle,
-            noise=self.noise,
-        )
-        if len(self.solution_bank) > 0:
-            example_blocks = []
-            for solution, score, extra_info in solution_bank:
-                block = (
-                    f'### Past Example\n'
-                    f'Solution:\n{solution.strip()}\n'
-                    f'{self.task.metric}: {score}\n'
-                    f'Additional meta-data: {extra_info}'
-                )
-                example_blocks.append(block)
-
-            example_str = '\n\n'.join(example_blocks)
-
-            meta_prompt = (
-                task_prompt
-                + f'\nHere are some past examples and the {self.task.metric}'
-                f'score they received where the goal is to '
-                f'{self.task.direction} the metric\n\n{example_str}\n\n'
-                f'Generate a new {self.task.solution_description} that is'
-                f' different from the old ones to '
-                f'{self.task.direction} the {self.task.metric}'
-                f' as much as possible.'
-            )
-
-        return meta_prompt
-
-    def prompt_lm(self, prompt: str) -> str:
-        """Standard LLM api inference call."""
-        response = self.client.chat.completions.create(
-            model='gemini-3.5-flash',
-            # TODO(MS): maybe pass in a pydantic model for the type of
-            # response we want...particularly for code
-            # response_format={"type": "json_object"},
-            # TODO(MS): maybe do somehitng about system prompt??
-            messages=[
-                {
-                    'role': 'system',
-                    'content': 'You are a helpful assistant.',
-                },
-                {
-                    'role': 'user',
-                    'content': prompt,
-                },
-            ],
-        )
-        # Assuming 'response' is your completed OpenAI API call
-        raw_output = response.choices[0].message.content
-        if raw_output is not None:
-            return raw_output
-        else:
-            # Handle the error state
-            raise ValueError(
-                'LM api call returned None instead of a valid string.',
-            )
-        return raw_output
+        self.mutator = {'kincontext': KInContextMutator()}[kwargs['mutator']]
 
     def optimize(self, num_iter: int = 5) -> None:
         """Optimization loop for task."""
         # TODO(MS): impl convergence criteria
 
         for _i in range(num_iter):
-            meta_prompt = self.get_meta_prompt()
-            solution = self.prompt_lm(meta_prompt)
+            solution_bank = self.solution_bank.get_solutions(
+                n=self.n,
+                order=self.order,
+                shuffle=self.shuffle,
+                noise=self.noise,
+            )
+            solution = self.mutator.mutate(solution_bank, self.task)
             score, extra_info = self.task.evaluate(solution)
             self.solution_bank.add_solution_score_pair(
                 solution,
                 score,
                 extra_info,
             )
-            print(meta_prompt)
 
         # NOTE(MS): temporarily save solution bank
         experiment_dir = (
