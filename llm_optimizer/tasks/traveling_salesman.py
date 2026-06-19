@@ -64,6 +64,7 @@ class TravelingSalesman(Task):
             self.num_decimals,
             'dp',
         )
+        print(f'Minimum distance of solution: {_min_dis}')
         self.gt_sol_str = ','.join([str(i) for i in self.gt_sol])
 
         init_sol = None
