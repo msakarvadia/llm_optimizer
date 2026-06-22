@@ -15,11 +15,10 @@ from llm_optimizer.tasks.base_task import Task
 from llm_optimizer.utils import prompt_lm
 
 
-class DEMutator(Mutator):
-    """Differential Evolution mutator.
+class GAMutator(Mutator):
+    """Genetic Algorithm mutator.
 
-    # https://github.com/beeevita/EvoPrompt/blob/main/data/template_de.py # noqa
-    # https://github.com/beeevita/EvoPrompt/blob/main/data/template_de.py#L129 # noqa
+    # https://github.com/beeevita/EvoPrompt/blob/main/data/template_ga.py#L2
     """
 
     def mutate(
@@ -100,51 +99,33 @@ Extract the final solution that was derived after step three in the past step fr
             f''
         )
 
-        de_instructions = f"""\n
+        ga_instructions = f"""\n
 First we provide an example of evolving a prompt, this may be different from the task you are supposed to complete. Regardless, follow the template:
 Please follow the instruction step-by-step to generate a better prompt.
-1. Identify the different parts between the Prompt 1 and Prompt 2:
+1. Crossover the following prompts and generate a new prompt:
 Prompt 1: Rewrite the input text into simpler text.
 Prompt 2: Rewrite my complex sentence in simpler terms, but keep the meaning.
-2. Randomly mutate the different parts
-3. Crossover the different parts with the following Prompt 3 and generate a final prompt bracketed with <solution> and </solution>:
-Prompt 3: Rewrite the given input text into simpler English sentences while preserving the same meaning, so it can be understood by non-native English speakers.
+2. Mutate the prompt generated in Step 1 and generate a final prompt bracketed with <solution> and </solution>.
 
-1. Identifying the different parts between Prompt 1 and Prompt 2:
-Prompt 1: Rewrite the input text into simpler text.
-Prompt 2: Rewrite my complex sentence in simpler terms, but keep the meaning.
-Different parts:
-"input text" vs "my complex sentence"
-"simpler text" vs "simpler terms, but keep the meaning"
-
-2. Randomly mutate the different parts:
-"input text" -> "provided text"
-"my complex sentence" -> "the difficult sentence"
-"simpler text" -> "easier language"
-"simpler terms, but keep the meaning" -> "simpler words while maintaining the meaning"
-
-3. Crossover the different parts with the following Prompt 3 and generate a final prompt bracketed with <solution> and </solution>:
-Prompt 3: Rewrite the given input text into simpler English sentences while preserving the same meaning, so it can be understood by non-native English speakers.
-
-Final Prompt: <solution>Transform the difficult sentence into easier language while keeping the meaning, for non-native English speakers to comprehend.</solution>
+1. Crossover Prompt: Rewrite the complex text into simpler text while keeping its meaning.
+2. <solution>Transform the provided text into simpler language, maintaining its essence.</solution>
 
 Now it is your turn. Please follow the instruction step-by-step to generate a better solution.
-1. Identify the different parts between Solution 1 and Solution 2:
+Please follow the instruction step-by-step to generate a better solution.
+1. Crossover the following solution and generate a new solution:
 Solution 1:
-{past_solutions[-3][0]}
-Solution 1's meta data:
-{past_solutions[-3][2]}
-Solution 2:
 {past_solutions[-2][0]}
-Solution 2's meta data:
+Solution 1's meta data:
 {past_solutions[-2][2]}
-2. Randomly mutate the different parts
-3. Crossover the different parts with the following Solution 3 and generate a final solution (Do not write anything except the final request solution):
-Solution 3:
+Solution 2:
 {past_solutions[-1][0]}
-Solution 3's meta data:
+Solution 2's meta data:
 {past_solutions[-1][2]}
-"""
-        meta_prompt = task_prompt + de_instructions
+2. Mutate the solution generated in Step 1 and generate a final solution bracketed with <solution> and </solution>.
 
+1.
+"""
+        meta_prompt = task_prompt + ga_instructions
+
+        # print(meta_prompt)
         return meta_prompt
