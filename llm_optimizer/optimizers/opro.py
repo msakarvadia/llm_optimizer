@@ -17,6 +17,7 @@ from llm_optimizer.optimizers.llm_mutator_library.differential_evolution import 
 from llm_optimizer.optimizers.llm_mutator_library.genetic_algorithm import (
     GAMutator,
 )
+from llm_optimizer.optimizers.llm_mutator_library.gepa import GEPAMutator
 from llm_optimizer.optimizers.llm_mutator_library.k_in_context import (
     KInContextMutator,
 )
@@ -73,6 +74,7 @@ class OPROOptimizer(Optimizer):
             'kincontext': KInContextMutator(),
             'DE': DEMutator(),
             'GA': GAMutator(),
+            'GEPA': GEPAMutator(),
         }[kwargs['mutator']]
 
     def optimize(self, num_iter: int = 5) -> None:

@@ -29,7 +29,7 @@ if __name__ == '__main__':
         '--mutator',
         type=str,
         default='kincontext',
-        choices=['kincontext', 'DE', 'GA'],
+        choices=['kincontext', 'DE', 'GA', 'GEPA'],
         help="""Opro specific: name of LLM-mutator """,
     )
     parser.add_argument(
