@@ -14,6 +14,9 @@ from llm_optimizer.optimizers.base_optimizer import Optimizer
 from llm_optimizer.optimizers.llm_mutator_library.differential_evolution import (  # noqa
     DEMutator,
 )
+from llm_optimizer.optimizers.llm_mutator_library.genetic_algorithm import (
+    GAMutator,
+)
 from llm_optimizer.optimizers.llm_mutator_library.k_in_context import (
     KInContextMutator,
 )
@@ -66,9 +69,11 @@ class OPROOptimizer(Optimizer):
                 score,
                 extra_info,
             )
-        self.mutator = {'kincontext': KInContextMutator(), 'DE': DEMutator()}[
-            kwargs['mutator']
-        ]
+        self.mutator = {
+            'kincontext': KInContextMutator(),
+            'DE': DEMutator(),
+            'GA': GAMutator(),
+        }[kwargs['mutator']]
 
     def optimize(self, num_iter: int = 5) -> None:
         """Optimization loop for task."""

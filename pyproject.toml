@@ -91,16 +91,6 @@ warn_redundant_casts = true
 warn_unused_configs = true
 warn_unused_ignores = true
 
-[[tool.mypy.overrides]]
-module = "testing.*"
-allow_incomplete_defs = true
-allow_untyped_defs = true
-
-[[tool.mypy.overrides]]
-module = "tests.*"
-allow_incomplete_defs = true
-allow_untyped_defs = true
-
 [tool.ruff]
 line-length = 79
 target-version = "py310"
