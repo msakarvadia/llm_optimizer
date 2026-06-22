@@ -64,7 +64,7 @@ class HarmBench(Task):
             classifier_model_id,
             dtype=torch.bfloat16 if self.device == 'cuda' else torch.float16,
             low_cpu_mem_usage=True,
-        ).to(self.device)  # type: ignore[arg-type]
+        ).to(self.device)
 
     def evaluate(self, solution: str) -> tuple[float, dict[str, Any]]:
         """Evaluate the candidate trigger string against the validation classifier.
