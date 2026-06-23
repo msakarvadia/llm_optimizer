@@ -36,7 +36,7 @@ if __name__ == '__main__':
         '--sampling_strategy_name',
         type=str,
         default='most_recent',
-        choices=['most_recent'],
+        choices=['most_recent', 'random'],
         help="""Opro specific: name of population sampling strategy""",
     )
     parser.add_argument(
@@ -162,6 +162,7 @@ if __name__ == '__main__':
         noise=args.noise,
         sampling_strategy_name=args.sampling_strategy_name,
         mutator=args.mutator,
+        seed=args.seed,
     )
 
     # optimize

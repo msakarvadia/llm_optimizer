@@ -42,6 +42,9 @@ class OPROOptimizer(Optimizer):
         **kwargs: Any,
     ) -> None:
         """Init optimizer."""
+        self.seed = kwargs['seed']
+        random.seed(self.seed)
+
         self.task = task
         self.solution_bank = SolutionBank()
 
@@ -217,6 +220,9 @@ class SolutionBank:
         sampled_items: list[tuple[Any, Any, Any]] = []
         if sampling_strategy_name == 'most_recent':
             sampled_items = population[-n:]
+        if sampling_strategy_name == 'random':
+            k = n if len(population) >= n else len(population)
+            sampled_items = random.sample(population, k=k)
 
         return sampled_items
 
