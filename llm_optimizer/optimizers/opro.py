@@ -48,7 +48,11 @@ class OPROOptimizer(Optimizer):
         self.rng = np.random.default_rng(seed=self.seed)
 
         self.task = task
-        self.solution_bank = SolutionBank(seed=self.seed)
+        self.solution_bank = SolutionBank(
+            seed=self.seed,
+            max_population_size=kwargs['max_population_size'],
+            pruning_strategy=kwargs['pruning_strategy'],
+        )
 
         api_key = os.getenv('GEMINI_API_KEY')
         if api_key is None:
@@ -100,6 +104,7 @@ class OPROOptimizer(Optimizer):
                 score,
                 extra_info,
             )
+            self.solution_bank.prune_population()
 
         # NOTE(MS): temporarily save solution bank
         experiment_dir = (
@@ -114,7 +119,12 @@ class OPROOptimizer(Optimizer):
 class SolutionBank:
     """Class to track (solution,score) pairs during llm_optimization."""
 
-    def __init__(self, seed: int) -> None:
+    def __init__(
+        self,
+        seed: int,
+        max_population_size: int,
+        pruning_strategy: str,
+    ) -> None:
         """Initialize bank to store solution/score pairs."""
         # dict[optimizaiton_iteration (int) :
         #          {'solution':solution, 'score':score, 'metadata':...}]
@@ -123,6 +133,8 @@ class SolutionBank:
         self.seed = seed
         random.seed(self.seed)
         self.rng = np.random.default_rng(seed=self.seed)
+        self.max_population_size = max_population_size
+        self.pruning_strategy = pruning_strategy
 
     def save_to_json(self, path: str) -> None:
         """Add solution/score pairs to bank."""
@@ -133,6 +145,36 @@ class SolutionBank:
         full_path = os.path.join(path, 'solution_bank.json')
         with open(full_path, 'w', encoding='utf-8') as json_file:
             json.dump(self.bank, json_file, indent=4)
+
+    def prune_population(self) -> None:
+        """Remove old population solutions."""
+        # if the population is smaller than max, do nothing
+        if self.__len__() <= self.max_population_size:
+            return
+
+        # Calculate how many items need to be removed
+        num_to_remove = self.__len__() - self.max_population_size
+
+        if self.pruning_strategy == 'oldest':
+            # Since keys are sequential integers (0, 1, 2...),
+            # the oldest are 0 to num_to_remove - 1
+            for i in range(num_to_remove):
+                if i in self.bank:
+                    del self.bank[i]
+            # NOTE(MS): I choose not to reindex solutions
+
+        if self.pruning_strategy == 'lowest_scoring':
+            # Sort bank keys by their corresponding score value
+            # in ascending order
+            keys_by_score = sorted(
+                self.bank.keys(),
+                key=lambda k: self.bank[k]['score'],
+            )
+            # Identify the keys with the lowest scores to drop
+            keys_to_remove = keys_by_score[:num_to_remove]
+            # Delete the lowest scoring items directly
+            for key in keys_to_remove:
+                del self.bank[key]
 
     def add_solution_score_pair(
         self,
@@ -165,7 +207,7 @@ class SolutionBank:
             noise gaussian mean=0, std_dev = of current rewards
         """
         # Generate iteration indices in the requested chronological order
-        indices = list(range(len(self.bank)))
+        indices = sorted(self.bank.keys())
 
         # Gather entries matching the requested sequence
         raw_items = []

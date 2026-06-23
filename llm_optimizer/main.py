@@ -57,10 +57,29 @@ if __name__ == '__main__':
         '--n',
         type=int,
         default=5,
-        help="""Number of past examples to keep in history
+        help="""Number of past examples to keep in context history
             analog of "momentum" in traditional optimization.
             n=0 means keep full history
             """,
+    )
+    parser.add_argument(
+        '--max_population_size',
+        type=int,
+        default=1000,
+        help="""Number of past solutions to keep 'live' in the population
+            these are the set of solutions that will be sampled from
+            and mutated
+            """,
+    )
+    parser.add_argument(
+        '--pruning_strategy',
+        type=str,
+        default='oldest',
+        choices=[
+            'oldest',
+            'lowest_scoring',
+        ],
+        help="""Opro specific: name of population pruning strategy""",
     )
     parser.add_argument(
         '--noise',
@@ -178,6 +197,8 @@ if __name__ == '__main__':
         mutator=args.mutator,
         seed=args.seed,
         sampling_prob=args.sampling_prob,
+        max_population_size=args.max_population_size,
+        pruning_strategy=args.pruning_strategy,
     )
 
     # optimize
