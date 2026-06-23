@@ -44,15 +44,30 @@ class OPROOptimizer(Optimizer):
     ) -> None:
         """Init optimizer."""
         self.seed = kwargs['seed']
+        self.sampling_strategy_name = kwargs['sampling_strategy_name']
+        self.sampling_prob = kwargs['sampling_prob']
+        self.max_population_size = kwargs['max_population_size']
+        self.pruning_strategy = kwargs['pruning_strategy']
         random.seed(self.seed)
         self.rng = np.random.default_rng(seed=self.seed)
-
         self.task = task
+        self.n = num_past_sol
+        self.noise = noise
+        self.num_parallel_search = num_parallel_search
+
+        self.experiment_dir = (
+            f'temp_results_dir/{self.task.solution_description}'
+            f'_{self.n}_{self.noise}_{self.max_population_size}'
+            f'_{self.pruning_strategy}_{self.sampling_strategy_name}'
+            f'_{self.sampling_prob}_{self.seed}/'
+        )
+
         self.solution_bank = SolutionBank(
             seed=self.seed,
-            max_population_size=kwargs['max_population_size'],
-            pruning_strategy=kwargs['pruning_strategy'],
+            max_population_size=self.max_population_size,
+            pruning_strategy=self.pruning_strategy,
         )
+        self.solution_bank.read_from_checkpoint(self.experiment_dir)
 
         api_key = os.getenv('GEMINI_API_KEY')
         if api_key is None:
@@ -67,11 +82,6 @@ class OPROOptimizer(Optimizer):
         )
 
         # NOTE(MS): variables to manage in-context examples/rewards
-        self.n = num_past_sol
-        self.noise = noise
-        self.num_parallel_search = num_parallel_search
-        self.sampling_strategy_name = kwargs['sampling_strategy_name']
-        self.selection_prob = kwargs['sampling_prob']
         if self.task.seed_candidate:
             score, extra_info = self.task.evaluate(self.task.seed_candidate)
             self.solution_bank.add_solution_score_pair(
@@ -90,12 +100,12 @@ class OPROOptimizer(Optimizer):
         """Optimization loop for task."""
         # TODO(MS): impl convergence criteria
 
-        for _i in range(num_iter):
+        while len(self.solution_bank) <= num_iter:
             solution_bank = self.solution_bank.get_solutions(
                 n=self.n,
                 sampling_strategy_name=self.sampling_strategy_name,
                 noise=self.noise,
-                selection_prob=self.selection_prob,
+                selection_prob=self.sampling_prob,
             )
             solution = self.mutator.mutate(solution_bank, self.task)
             score, extra_info = self.task.evaluate(solution)
@@ -105,15 +115,9 @@ class OPROOptimizer(Optimizer):
                 extra_info,
             )
             self.solution_bank.prune_population()
-
-        # NOTE(MS): temporarily save solution bank
-        experiment_dir = (
-            f'temp_results_dir/{self.task.solution_description}'
-            f'_{self.n}_{self.noise}/'
-        )
-
-        experiment_dir.replace('.', '')
-        self.solution_bank.save_to_json(experiment_dir)
+            # some notion of experimental check pointing
+            # NOTE(MS): currently done every time...maybe less freq?
+            self.solution_bank.save_to_json(self.experiment_dir)
 
 
 class SolutionBank:
@@ -129,6 +133,7 @@ class SolutionBank:
         # dict[optimizaiton_iteration (int) :
         #          {'solution':solution, 'score':score, 'metadata':...}]
         self.bank: dict[int, dict[str, Any]] = {}
+        self.never_prune_bank: dict[int, dict[str, Any]] = {}
 
         self.seed = seed
         random.seed(self.seed)
@@ -136,13 +141,44 @@ class SolutionBank:
         self.max_population_size = max_population_size
         self.pruning_strategy = pruning_strategy
 
+    def read_from_checkpoint(self, path: str) -> None:
+        """Read current version of the solution banks."""
+        # Define the exact file paths as saved in save_to_json
+        never_prune_path = os.path.join(
+            path,
+            'long_running_solution_bank.json',
+        )
+        bank_path = os.path.join(path, 'current_solution_bank.json')
+
+        # Load long_running_solution_bank if it exists
+        if os.path.exists(never_prune_path):
+            with open(never_prune_path, encoding='utf-8') as json_file:
+                raw_data = json.load(json_file)
+                # Convert only the top-level keys to int
+                self.never_prune_bank = {
+                    int(k): v for k, v in raw_data.items()
+                }
+            print(f'Loaded never_prune_bank from {never_prune_path}')
+
+        # Load current_solution_bank if it exists
+        if os.path.exists(bank_path):
+            with open(bank_path, encoding='utf-8') as json_file:
+                raw_data = json.load(json_file)
+                # Convert only the top-level keys to int
+                self.bank = {int(k): v for k, v in raw_data.items()}
+            print(f'Loaded bank from {bank_path}')
+
     def save_to_json(self, path: str) -> None:
         """Add solution/score pairs to bank."""
         # Ensure the directory exists; do nothing if it already does
+        path.replace('.', '')
         os.makedirs(path, exist_ok=True)
 
         print(self.bank)
-        full_path = os.path.join(path, 'solution_bank.json')
+        full_path = os.path.join(path, 'long_running_solution_bank.json')
+        with open(full_path, 'w', encoding='utf-8') as json_file:
+            json.dump(self.never_prune_bank, json_file, indent=4)
+        full_path = os.path.join(path, 'current_solution_bank.json')
         with open(full_path, 'w', encoding='utf-8') as json_file:
             json.dump(self.bank, json_file, indent=4)
 
@@ -188,6 +224,8 @@ class SolutionBank:
         self.bank[next_iter]['solution'] = solution
         self.bank[next_iter]['score'] = score
         self.bank[next_iter]['extra_info'] = extra_info
+
+        self.never_prune_bank[next_iter] = self.bank[next_iter]
 
     def get_solutions(
         self,
@@ -342,4 +380,4 @@ class SolutionBank:
 
     def __len__(self) -> int:
         """Total # of past solutions generated."""
-        return len(self.bank)
+        return len(self.never_prune_bank)
