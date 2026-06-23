@@ -223,6 +223,9 @@ class SolutionBank:
         if sampling_strategy_name == 'random':
             k = n if len(population) >= n else len(population)
             sampled_items = random.sample(population, k=k)
+        if sampling_strategy_name == 'highest_scoring':
+            # Sort by score (index 1) in ascending order, then take last n
+            sampled_items = sorted(population, key=lambda x: x[1])[-n:]
 
         return sampled_items
 
