@@ -2,7 +2,7 @@
 #SBATCH --gres=gpu:1       # Request GPU "generic resources"
 #SBATCH --cpus-per-task=3  # Refer to cluster's documentation for the right CPU/GPU ratio
 #SBATCH --mem=32000M       # Memory proportional to GPUs: 32000 Cedar, 47000 Béluga, 64000 Graham.
-#SBATCH --time=0-03:00     # DD-HH:MM:SS
+#SBATCH --time=0-16:00     # DD-HH:MM:SS
 
 
 # Simple experiment to understand how OPRO reacts to noise and momentum.'
@@ -14,6 +14,8 @@
 # sampling_prob (only for tournament): 0.5, 0.7, 0.9
 # pruning_strategy: oldest, lowest_scoring
 # tasks: tweet, kernelbench
+
+module load cuda
 cd /scratch/mansisak/llm_optimizer/llm_optimizer
 
 # Static parameters
