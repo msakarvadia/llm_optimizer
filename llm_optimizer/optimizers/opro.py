@@ -171,7 +171,7 @@ class SolutionBank:
     def save_to_json(self, path: str) -> None:
         """Add solution/score pairs to bank."""
         # Ensure the directory exists; do nothing if it already does
-        path.replace('.', '')
+        path = path.replace('.', '')
         os.makedirs(path, exist_ok=True)
 
         print(self.bank)
