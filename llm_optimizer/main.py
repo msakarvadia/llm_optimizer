@@ -33,6 +33,13 @@ if __name__ == '__main__':
         help="""Opro specific: name of LLM-mutator """,
     )
     parser.add_argument(
+        '--sampling_strategy_name',
+        type=str,
+        default='most_recent',
+        choices=['most_recent'],
+        help="""Opro specific: name of population sampling strategy""",
+    )
+    parser.add_argument(
         '--n',
         type=int,
         default=5,
@@ -153,8 +160,7 @@ if __name__ == '__main__':
         task=task,
         num_past_sol=args.n,
         noise=args.noise,
-        shuffle=False,
-        order='ascending',
+        sampling_strategy_name=args.sampling_strategy_name,
         mutator=args.mutator,
     )
 

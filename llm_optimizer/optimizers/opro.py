@@ -61,8 +61,7 @@ class OPROOptimizer(Optimizer):
         self.n = num_past_sol
         self.noise = noise
         self.num_parallel_search = num_parallel_search
-        self.shuffle = kwargs['shuffle']
-        self.order = kwargs['order']
+        self.sampling_strategy_name = kwargs['sampling_strategy_name']
         if self.task.seed_candidate:
             score, extra_info = self.task.evaluate(self.task.seed_candidate)
             self.solution_bank.add_solution_score_pair(
@@ -84,8 +83,7 @@ class OPROOptimizer(Optimizer):
         for _i in range(num_iter):
             solution_bank = self.solution_bank.get_solutions(
                 n=self.n,
-                order=self.order,
-                shuffle=self.shuffle,
+                sampling_strategy_name=self.sampling_strategy_name,
                 noise=self.noise,
             )
             solution = self.mutator.mutate(solution_bank, self.task)
@@ -141,8 +139,7 @@ class SolutionBank:
     def get_solutions(
         self,
         n: int = -1,
-        order: str = 'ascending',
-        shuffle: bool = False,
+        sampling_strategy_name: str = 'most_recent',
         noise: bool = False,
     ) -> list[tuple[Any, Any, Any]]:
         """Grab (sub)set of past solutions.
@@ -151,10 +148,6 @@ class SolutionBank:
 
         n : # of solutions to be sampled
 
-        order: ascending/descending/random
-          (order of iteration IDs before sampling)
-
-        shuffle: boolean; shuffle order of sampled solutions
 
         noise: add gaussian noise to the reward
             noise gaussian mean=0, std_dev = of current rewards
@@ -202,11 +195,28 @@ class SolutionBank:
         # raw_items.reverse()
 
         # Limit to the most rescent (or random) n samples
-        sampled_items = raw_items[-n:]
+        sampled_items = self.sampling_strategy(
+            raw_items,
+            n,
+            sampling_strategy_name,
+        )
 
-        # Optional secondary shuffle (primarily for ascending/descending)
-        if shuffle:
-            random.shuffle(sampled_items)
+        return sampled_items
+
+    def sampling_strategy(
+        self,
+        population: list[tuple[Any, Any, Any]],
+        n: int,
+        sampling_strategy_name: str,
+    ) -> list[tuple[Any, Any, Any]]:
+        """Implement population sampling strategy.
+
+        n: number of samples to draw from population
+        sampling_strategy_name: type of sampling strategy
+        """
+        sampled_items: list[tuple[Any, Any, Any]] = []
+        if sampling_strategy_name == 'most_recent':
+            sampled_items = population[-n:]
 
         return sampled_items
 
