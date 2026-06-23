@@ -36,8 +36,16 @@ if __name__ == '__main__':
         '--sampling_strategy_name',
         type=str,
         default='most_recent',
-        choices=['most_recent', 'random', 'highest_scoring'],
+        choices=['most_recent', 'random', 'highest_scoring', 'tournament'],
         help="""Opro specific: name of population sampling strategy""",
+    )
+    parser.add_argument(
+        '--sampling_prob',
+        type=float,
+        default=0.5,
+        help=""" For tournament sampling
+            p*(1-p)^i prob of sampling ith best individual
+            """,
     )
     parser.add_argument(
         '--n',
@@ -163,6 +171,7 @@ if __name__ == '__main__':
         sampling_strategy_name=args.sampling_strategy_name,
         mutator=args.mutator,
         seed=args.seed,
+        sampling_prob=args.sampling_prob,
     )
 
     # optimize

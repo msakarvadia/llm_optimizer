@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import random
+import warnings
 from typing import Any
 
 import numpy as np
@@ -44,9 +45,10 @@ class OPROOptimizer(Optimizer):
         """Init optimizer."""
         self.seed = kwargs['seed']
         random.seed(self.seed)
+        self.rng = np.random.default_rng(seed=self.seed)
 
         self.task = task
-        self.solution_bank = SolutionBank()
+        self.solution_bank = SolutionBank(seed=self.seed)
 
         api_key = os.getenv('GEMINI_API_KEY')
         if api_key is None:
@@ -65,6 +67,7 @@ class OPROOptimizer(Optimizer):
         self.noise = noise
         self.num_parallel_search = num_parallel_search
         self.sampling_strategy_name = kwargs['sampling_strategy_name']
+        self.selection_prob = kwargs['sampling_prob']
         if self.task.seed_candidate:
             score, extra_info = self.task.evaluate(self.task.seed_candidate)
             self.solution_bank.add_solution_score_pair(
@@ -88,6 +91,7 @@ class OPROOptimizer(Optimizer):
                 n=self.n,
                 sampling_strategy_name=self.sampling_strategy_name,
                 noise=self.noise,
+                selection_prob=self.selection_prob,
             )
             solution = self.mutator.mutate(solution_bank, self.task)
             score, extra_info = self.task.evaluate(solution)
@@ -110,11 +114,15 @@ class OPROOptimizer(Optimizer):
 class SolutionBank:
     """Class to track (solution,score) pairs during llm_optimization."""
 
-    def __init__(self) -> None:
+    def __init__(self, seed: int) -> None:
         """Initialize bank to store solution/score pairs."""
         # dict[optimizaiton_iteration (int) :
         #          {'solution':solution, 'score':score, 'metadata':...}]
         self.bank: dict[int, dict[str, Any]] = {}
+
+        self.seed = seed
+        random.seed(self.seed)
+        self.rng = np.random.default_rng(seed=self.seed)
 
     def save_to_json(self, path: str) -> None:
         """Add solution/score pairs to bank."""
@@ -144,6 +152,7 @@ class SolutionBank:
         n: int = -1,
         sampling_strategy_name: str = 'most_recent',
         noise: bool = False,
+        selection_prob: float = 0.5,
     ) -> list[tuple[Any, Any, Any]]:
         """Grab (sub)set of past solutions.
 
@@ -202,6 +211,7 @@ class SolutionBank:
             raw_items,
             n,
             sampling_strategy_name,
+            selection_prob,
         )
 
         return sampled_items
@@ -211,13 +221,24 @@ class SolutionBank:
         population: list[tuple[Any, Any, Any]],
         n: int,
         sampling_strategy_name: str,
+        selection_prob: float,
     ) -> list[tuple[Any, Any, Any]]:
         """Implement population sampling strategy.
 
         n: number of samples to draw from population
         sampling_strategy_name: type of sampling strategy
+
+        selection_prob: specific for 'tournament'
+        see: https://en.wikipedia.org/wiki/Tournament_selection
         """
         sampled_items: list[tuple[Any, Any, Any]] = []
+        if selection_prob >= 1.0:
+            # default to highest_scoring
+            warnings.warn(
+                'Default to highest_scoring sampling bc selection_prob >= 1',
+                stacklevel=2,
+            )
+            sampling_strategy_name = 'highest_scoring'
         if sampling_strategy_name == 'most_recent':
             sampled_items = population[-n:]
         if sampling_strategy_name == 'random':
@@ -226,6 +247,34 @@ class SolutionBank:
         if sampling_strategy_name == 'highest_scoring':
             # Sort by score (index 1) in ascending order, then take last n
             sampled_items = sorted(population, key=lambda x: x[1])[-n:]
+        if sampling_strategy_name == 'tournament':
+            # Cap k to pop. size to prevent crashing if n > population size
+            k = min(n, len(population))
+
+            # sort population from high to low score
+            ranked_population = sorted(
+                population,
+                key=lambda x: x,
+                reverse=True,
+            )
+
+            # calculate and normalize sampling weights
+            weights = [
+                selection_prob * ((1 - selection_prob) ** i)
+                for i in range(len(ranked_population))
+            ]
+            total_weight = sum(weights)
+            normalized_weights = [w / total_weight for w in weights]
+
+            # sample
+            chosen_indices = self.rng.choice(
+                len(ranked_population),
+                size=k,
+                replace=False,
+                p=normalized_weights,
+            )
+            sampled_items = [ranked_population[idx] for idx in chosen_indices]
+            # NOTE(MS): these samples are not strictly ordered
 
         return sampled_items
 
