@@ -36,7 +36,13 @@ if __name__ == '__main__':
         '--sampling_strategy_name',
         type=str,
         default='most_recent',
-        choices=['most_recent', 'random', 'highest_scoring', 'tournament'],
+        choices=[
+            'most_recent',
+            'random',
+            'highest_scoring',
+            'tournament',
+            'wheel',
+        ],
         help="""Opro specific: name of population sampling strategy""",
     )
     parser.add_argument(

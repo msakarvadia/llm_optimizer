@@ -232,6 +232,9 @@ class SolutionBank:
         see: https://en.wikipedia.org/wiki/Tournament_selection
         """
         sampled_items: list[tuple[Any, Any, Any]] = []
+        # Cap k to pop. size to prevent crashing if n > population size
+        k = min(n, len(population))
+
         if selection_prob >= 1.0:
             # default to highest_scoring
             warnings.warn(
@@ -242,15 +245,11 @@ class SolutionBank:
         if sampling_strategy_name == 'most_recent':
             sampled_items = population[-n:]
         if sampling_strategy_name == 'random':
-            k = n if len(population) >= n else len(population)
             sampled_items = random.sample(population, k=k)
         if sampling_strategy_name == 'highest_scoring':
             # Sort by score (index 1) in ascending order, then take last n
             sampled_items = sorted(population, key=lambda x: x[1])[-n:]
         if sampling_strategy_name == 'tournament':
-            # Cap k to pop. size to prevent crashing if n > population size
-            k = min(n, len(population))
-
             # sort population from high to low score
             ranked_population = sorted(
                 population,
@@ -275,6 +274,27 @@ class SolutionBank:
             )
             sampled_items = [ranked_population[idx] for idx in chosen_indices]
             # NOTE(MS): these samples are not strictly ordered
+        if sampling_strategy_name == 'wheel':
+            # https://arxiv.org/abs/1109.3627
+
+            # Extract scores (index 1 of the tuple)
+            scores = [float(item[1]) for item in population]
+            total_score = sum(scores)
+
+            # Avoid division by zero if all scores are zero
+            if total_score == 0:
+                probabilities = [1.0 / len(population)] * len(population)
+            else:
+                probabilities = [s / total_score for s in scores]
+
+            # Sample without replacement using the calculated probabilities
+            chosen_indices = self.rng.choice(
+                len(population),
+                size=k,
+                replace=False,
+                p=probabilities,
+            )
+            sampled_items = [population[idx] for idx in chosen_indices]
 
         return sampled_items
 
