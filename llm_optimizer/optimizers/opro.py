@@ -48,8 +48,11 @@ class OPROOptimizer(Optimizer):
         args_dict = dict(locals())
         if 'kwargs' in args_dict:
             args_dict.update(args_dict.pop('kwargs'))
-        clean_keys = [str(key).replace('.', '') for key in args_dict]
-        result_string = '_'.join(clean_keys)
+        args_dict.pop('self')
+        clean_values = [
+            str(val).replace('.', '') for val in args_dict.values()
+        ]
+        result_string = '_'.join(clean_values)
         self.experiment_dir = f'temp_results_dir/{result_string}/'
 
         self.seed = kwargs['seed']
