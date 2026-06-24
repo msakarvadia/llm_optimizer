@@ -1,5 +1,8 @@
 meta-llama/Meta-Llama-3-8B-Instruct:
-  serving_type: "vllm" # NO api key for local vllm, just start server
+  key_env_name: "vllm" # NO api key for local vllm, just start server
+  base_url: "http://localhost:8000/v1"
+mlabonne/NeuralDaredevil-8B-abliterated:
+  key_env_name: "vllm" # NO api key for local vllm, just start server
   base_url: "http://localhost:8000/v1"
 gemini-3.5-flash:
   key_env_name: "GEMINI_API_KEY"

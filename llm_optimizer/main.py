@@ -16,6 +16,7 @@ from llm_optimizer.tasks.kernel_bench import KernelBench
 from llm_optimizer.tasks.maximize_function import MaximizeFunction
 from llm_optimizer.tasks.traveling_salesman import TravelingSalesman
 from llm_optimizer.tasks.tweet_engagement import TweetEngagement
+from llm_optimizer.utils import start_vllm_server
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -32,8 +33,15 @@ if __name__ == '__main__':
         '--optimizer_llm',
         type=str,
         default='gemini-3.5-flash',
-        choices=['gemini-3.5-flash'],
-        help="""Name of llm-baed optimizer""",
+        choices=[
+            'gemini-3.5-flash',
+            'openai/gpt-oss-120b',
+            'meta-llama/Meta-Llama-3-8B-Instruct',
+            'mlabonne/NeuralDaredevil-8B-abliterated',
+        ],
+        help="""Name of llm-baed optimizer; config in ../config.yaml
+        can point to different base_urls and/or local vllm server
+        """,
     )
     parser.add_argument(
         '--mutator',
@@ -172,6 +180,7 @@ if __name__ == '__main__':
     key_env_name = config[args.optimizer_llm]['key_env_name']
     if key_env_name == 'vllm':
         # TODO: start server
+        process = start_vllm_server(model_name=args.optimizer_llm)
         args.api_key = 'EMPTY'
     else:
         args.api_key = os.getenv(key_env_name)
