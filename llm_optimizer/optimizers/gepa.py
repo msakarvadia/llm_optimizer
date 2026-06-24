@@ -40,8 +40,7 @@ class GEPAOptimizer(Optimizer):
         self.n = num_past_sol
         self.noise = noise
         self.num_parallel_search = num_parallel_search
-        self.shuffle = kwargs['shuffle']
-        self.order = kwargs['order']
+        self.max_population_size = kwargs['max_population_size']
 
     def optimize(self, num_iter: int = 5) -> None:
         """Optimization loop for task."""
@@ -66,7 +65,7 @@ class GEPAOptimizer(Optimizer):
                 # https://github.com/gepa-ai/gepa/releases
                 # https://github.com/gepa-ai/gepa/pull/246
                 candidate_selection_strategy=TopKParetoCandidateSelector(
-                    k=self.n,
+                    k=self.max_population_size,
                     rng=rng,
                 ),
             ),

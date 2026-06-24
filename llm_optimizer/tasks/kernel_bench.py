@@ -187,6 +187,6 @@ class KernelBench(Task):
             speedup = 0.0
             error_dict = {'error': e.stderr}
 
-        # print(result)
+        print(result)
 
         return speedup, error_dict
