@@ -45,15 +45,7 @@ class OPROOptimizer(Optimizer):
         """Init optimizer."""
         # Capture arguments and flatten kwargs
         # build experiment path
-        args_dict = dict(locals())
-        if 'kwargs' in args_dict:
-            args_dict.update(args_dict.pop('kwargs'))
-        args_dict.pop('self')
-        clean_values = [
-            str(val).replace('.', '') for val in args_dict.values()
-        ]
-        result_string = '_'.join(clean_values)
-        self.experiment_dir = f'temp_results_dir/{result_string}/'
+        self.experiment_dir = "temp_results_dir/kwargs['expeirment_dir']/"
 
         self.seed = kwargs['seed']
         self.sampling_strategy_name = kwargs['sampling_strategy_name']

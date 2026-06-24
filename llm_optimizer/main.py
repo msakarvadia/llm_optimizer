@@ -148,6 +148,8 @@ if __name__ == '__main__':
         help="""# decimals to report in distance.""",
     )
     args = parser.parse_args()
+    clean_values = [str(val).replace('.', '') for val in args.values()]
+    experiment_dir = '_'.join(clean_values)
 
     tweet_thread = """@CNN: 'House averts government shutdown'
     @user: 'I wish people cheered when I do my job'"""
@@ -199,6 +201,7 @@ if __name__ == '__main__':
         sampling_prob=args.sampling_prob,
         max_population_size=args.max_population_size,
         pruning_strategy=args.pruning_strategy,
+        experiment_dir=experiment_dir,
     )
 
     # optimize
