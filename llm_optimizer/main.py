@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import os
+
+import yaml
 
 from llm_optimizer.optimizers.base_optimizer import Optimizer
 from llm_optimizer.optimizers.gepa import GEPAOptimizer
@@ -23,6 +26,13 @@ if __name__ == '__main__':
         type=str,
         default='opro',
         choices=['opro', 'gepa', 'open_evolve'],
+        help="""Name of llm-baed optimizer""",
+    )
+    parser.add_argument(
+        '--optimizer_llm',
+        type=str,
+        default='gemini-3.5-flash',
+        choices=['gemini-3.5-flash'],
         help="""Name of llm-baed optimizer""",
     )
     parser.add_argument(
@@ -147,11 +157,24 @@ if __name__ == '__main__':
         default=3,
         help="""# decimals to report in distance.""",
     )
+
     args = parser.parse_args()
     args_dict = vars(args).copy()
     args_dict.pop('num_iter', None)
     clean_values = [str(val).replace('.', '') for val in args_dict.values()]
     experiment_dir = '_'.join(clean_values)
+
+    # Manage optimizer llm
+    with open('../config.yaml', encoding='utf-8') as file:
+        config = yaml.safe_load(file)
+    print(config)
+    args.base_url = config[args.optimizer_llm]['base_url']
+    key_env_name = config[args.optimizer_llm]['key_env_name']
+    if key_env_name == 'vllm':
+        # TODO: start server
+        args.api_key = 'EMPTY'
+    else:
+        args.api_key = os.getenv(key_env_name)
 
     tweet_thread = """@CNN: 'House averts government shutdown'
     @user: 'I wish people cheered when I do my job'"""
@@ -204,6 +227,9 @@ if __name__ == '__main__':
         max_population_size=args.max_population_size,
         pruning_strategy=args.pruning_strategy,
         experiment_dir=experiment_dir,
+        model_name=args.optimizer_llm,
+        base_url=args.base_url,
+        api_key=args.api_key,
     )
 
     # optimize

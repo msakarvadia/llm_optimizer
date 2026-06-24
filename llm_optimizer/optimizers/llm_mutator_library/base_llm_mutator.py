@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
 from openai import OpenAI
@@ -18,9 +17,12 @@ class Mutator:
     only change the get_meta_prompt method
     """
 
-    def __init__(self) -> None:
+    def __init__(self, api_key: str, base_url: str, model_name: str) -> None:
         """Initialize the LLM."""
-        api_key = os.getenv('GEMINI_API_KEY')
+        self.model_name = model_name
+        self.base_url = base_url
+        self.api_key = api_key
+        print(f'INITIALIZING: {self.model_name=}')
         if api_key is None:
             raise ValueError(
                 'API key not found. Set the MY_API_KEY environment variable.',
@@ -28,8 +30,8 @@ class Mutator:
 
         # TODO(MS): make generalizable to other base_urls
         self.client = OpenAI(
-            api_key=api_key,
-            base_url='https://generativelanguage.googleapis.com/v1beta/openai/',
+            api_key=self.api_key,
+            base_url=self.base_url,
         )
 
     def get_meta_prompt(
@@ -48,5 +50,9 @@ class Mutator:
         """Single LLM-based Mutation of parent solutions."""
         meta_prompt = self.get_meta_prompt(past_solutions, task)
         print(meta_prompt)
-        solution = prompt_lm(self.client, meta_prompt)
+        solution = prompt_lm(
+            self.client,
+            meta_prompt,
+            model_name=self.model_name,
+        )
         return solution

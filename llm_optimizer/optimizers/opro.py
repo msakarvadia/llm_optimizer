@@ -9,7 +9,6 @@ import warnings
 from typing import Any
 
 import numpy as np
-from openai import OpenAI
 
 from llm_optimizer.optimizers.base_optimizer import Optimizer
 from llm_optimizer.optimizers.llm_mutator_library.differential_evolution import (  # noqa
@@ -67,18 +66,6 @@ class OPROOptimizer(Optimizer):
         )
         self.solution_bank.read_from_checkpoint(self.experiment_dir)
 
-        api_key = os.getenv('GEMINI_API_KEY')
-        if api_key is None:
-            raise ValueError(
-                'API key not found. Set the MY_API_KEY environment variable.',
-            )
-
-        # TODO(MS): make generalizable to other base_urls
-        self.client = OpenAI(
-            api_key=api_key,
-            base_url='https://generativelanguage.googleapis.com/v1beta/openai/',
-        )
-
         # NOTE(MS): variables to manage in-context examples/rewards
         if self.task.seed_candidate:
             score, extra_info = self.task.evaluate(self.task.seed_candidate)
@@ -88,10 +75,26 @@ class OPROOptimizer(Optimizer):
                 extra_info,
             )
         self.mutator = {
-            'kincontext': KInContextMutator(),
-            'DE': DEMutator(),
-            'GA': GAMutator(),
-            'GEPA': GEPAMutator(),
+            'kincontext': KInContextMutator(
+                api_key=kwargs['api_key'],
+                base_url=kwargs['base_url'],
+                model_name=kwargs['model_name'],
+            ),
+            'DE': DEMutator(
+                api_key=kwargs['api_key'],
+                base_url=kwargs['base_url'],
+                model_name=kwargs['model_name'],
+            ),
+            'GA': GAMutator(
+                api_key=kwargs['api_key'],
+                base_url=kwargs['base_url'],
+                model_name=kwargs['model_name'],
+            ),
+            'GEPA': GEPAMutator(
+                api_key=kwargs['api_key'],
+                base_url=kwargs['base_url'],
+                model_name=kwargs['model_name'],
+            ),
         }[kwargs['mutator']]
 
     def optimize(self, num_iter: int = 5) -> None:

@@ -1,6 +1,11 @@
-models:
-  meta-llama/Meta-Llama-3-8B-Instruct:
-    api_key: "None"
-    base_url: "http://localhost:8000/v1"
+meta-llama/Meta-Llama-3-8B-Instruct:
+  serving_type: "vllm" # NO api key for local vllm, just start server
+  base_url: "http://localhost:8000/v1"
+gemini-3.5-flash:
+  key_env_name: "GEMINI_API_KEY"
+  base_url: 'https://generativelanguage.googleapis.com/v1beta/openai/'
+openai/gpt-oss-120b:
+  key_env_name: "ALCF_API_KEY"
+  base_url: "https://inference-api.alcf.anl.gov/resource_server/sophia/vllm/v1"
 
 # TODO(MS): add more models here, and the relevant keys/urls
