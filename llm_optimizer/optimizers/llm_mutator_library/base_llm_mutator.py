@@ -22,7 +22,6 @@ class Mutator:
         self.model_name = model_name
         self.base_url = base_url
         self.api_key = api_key
-        print(f'INITIALIZING: {self.model_name=}')
         if api_key is None:
             raise ValueError(
                 'API key not found. Set the MY_API_KEY environment variable.',
