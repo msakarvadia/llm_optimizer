@@ -32,6 +32,8 @@ dependencies = [
     "tilelang",
     "triton",
     "nvidia-cutlass-dsl",
+    "vllm",
+    "huggingface_hub",
 ]
 
 [project.urls]
