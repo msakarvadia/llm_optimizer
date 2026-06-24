@@ -36,7 +36,7 @@ if __name__ == '__main__':
         choices=[
             'gemini-3.5-flash',
             'openai/gpt-oss-120b',
-            'meta-llama/Meta-Llama-3-8B-Instruct',
+            'meta-llama/Llama-3.1-8B-Instruct',
             'mlabonne/NeuralDaredevil-8B-abliterated',
         ],
         help="""Name of llm-baed optimizer; config in ../config.yaml

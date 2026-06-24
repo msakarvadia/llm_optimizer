@@ -103,6 +103,7 @@ def start_vllm_server(model_name: str) -> subprocess.Popen[str] | None:
 
     # Capture environment variables from your active shell session
     env_context = os.environ.copy()
+    print(f"{env_context['HF_TOKEN']=}")
 
     # Tell Python HTTP engines to trust standard system root files
     # instead of local virtualenv variations that might be broken
