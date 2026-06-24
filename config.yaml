@@ -1,0 +1,6 @@
+models:
+  meta-llama/Meta-Llama-3-8B-Instruct:
+    api_key: "None"
+    base_url: "http://localhost:8000/v1"
+
+# TODO(MS): add more models here, and the relevant keys/urls
