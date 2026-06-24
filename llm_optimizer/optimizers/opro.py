@@ -356,7 +356,11 @@ class SolutionBank:
             # https://arxiv.org/abs/1109.3627
 
             # Extract scores (index 1 of the tuple)
-            scores = [float(item[1]) for item in population]
+            # add tiny value to prevent division by 0
+            epsilon = 1e-6
+            scores = [
+                max(0.0, float(item[1])) + epsilon for item in population
+            ]
             total_score = sum(scores)
 
             # Avoid division by zero if all scores are zero
