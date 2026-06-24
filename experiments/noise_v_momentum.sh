@@ -2,7 +2,7 @@
 #SBATCH --gres=gpu:1       # Request GPU "generic resources"
 #SBATCH --cpus-per-task=3  # Refer to cluster's documentation for the right CPU/GPU ratio
 #SBATCH --mem=32000M       # Memory proportional to GPUs: 32000 Cedar, 47000 Béluga, 64000 Graham.
-#SBATCH --time=0-16:00     # DD-HH:MM:SS
+#SBATCH --time=0-03:00     # DD-HH:MM:SS
 
 
 # Simple experiment to understand how OPRO reacts to noise and momentum.'
@@ -40,9 +40,9 @@ for task in "tweet" "kernelbench"; do
 
                             # 2. Handle Kincontext Mutator Dependency
                             if [ "$mutator" == "kincontext" ]; then
-                                n_values=(3 5 10 20)
+                                n_values=(3 20 50) # could be 3 5 10 20 50
                             else
-                                n_values=(0) # Dummy/Default value for other mutators
+                                n_values=(10) # Dummy/Default value for other mutators, need to extract a few samples
                             fi
 
                             for n in "${n_values[@]}"; do

@@ -43,6 +43,15 @@ class OPROOptimizer(Optimizer):
         **kwargs: Any,
     ) -> None:
         """Init optimizer."""
+        # Capture arguments and flatten kwargs
+        # build experiment path
+        args_dict = dict(locals())
+        if 'kwargs' in args_dict:
+            args_dict.update(args_dict.pop('kwargs'))
+        clean_keys = [str(key).replace('.', '') for key in args_dict]
+        result_string = '_'.join(clean_keys)
+        self.experiment_dir = f'temp_results_dir/{result_string}/'
+
         self.seed = kwargs['seed']
         self.sampling_strategy_name = kwargs['sampling_strategy_name']
         self.sampling_prob = kwargs['sampling_prob']
@@ -54,13 +63,6 @@ class OPROOptimizer(Optimizer):
         self.n = num_past_sol
         self.noise = noise
         self.num_parallel_search = num_parallel_search
-
-        self.experiment_dir = (
-            f'temp_results_dir/{self.task.solution_description}'
-            f'_{self.n}_{self.noise}_{self.max_population_size}'
-            f'_{self.pruning_strategy}_{self.sampling_strategy_name}'
-            f'_{self.sampling_prob}_{self.seed}/'
-        )
 
         self.solution_bank = SolutionBank(
             seed=self.seed,
