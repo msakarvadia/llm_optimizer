@@ -148,7 +148,7 @@ if __name__ == '__main__':
         help="""# decimals to report in distance.""",
     )
     args = parser.parse_args()
-    clean_values = [str(val).replace('.', '') for val in args.values()]
+    clean_values = [str(val).replace('.', '') for val in vars(args).values()]
     experiment_dir = '_'.join(clean_values)
 
     tweet_thread = """@CNN: 'House averts government shutdown'
