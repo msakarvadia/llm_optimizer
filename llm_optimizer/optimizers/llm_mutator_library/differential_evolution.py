@@ -32,9 +32,13 @@ class DEMutator(Mutator):
             warnings.warn(
                 'Past solution bank has less than 3 solutions, falling back on kincontext mutator.',
             )
-            mutator = KInContextMutator()
+            mutator = KInContextMutator(
+                api_key=self.api_key,
+                base_url=self.base_url,
+                model_name=self.model_name,
+            )
             meta_prompt = mutator.get_meta_prompt(past_solutions, task)
-            solution = prompt_lm(self.client, meta_prompt)
+            solution = prompt_lm(self.client, meta_prompt, self.model_name)
             return solution
 
         if len(past_solutions) > 3:
@@ -43,13 +47,17 @@ class DEMutator(Mutator):
             )
 
         first_prompt = self.get_first_prompt(past_solutions, task)
-        first_response = prompt_lm(self.client, first_prompt)
+        first_response = prompt_lm(self.client, first_prompt, self.model_name)
         second_prompt = self.get_second_prompt(
             past_solutions,
             task,
             first_response,
         )
-        second_response = prompt_lm(self.client, second_prompt)
+        second_response = prompt_lm(
+            self.client,
+            second_prompt,
+            self.model_name,
+        )
         return second_response
 
     def get_second_prompt(
