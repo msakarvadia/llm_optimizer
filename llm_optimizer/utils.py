@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import atexit
 import os
+import signal
 import subprocess
 import time
 
@@ -133,5 +135,19 @@ def start_vllm_server(model_name: str) -> subprocess.Popen[str] | None:
             return None
 
         time.sleep(3)
+
+    def cleanup() -> None:
+        """Forcefully kills the entire process group if it's still alive."""
+        try:
+            if process.poll() is None:
+                print('\nCleaning up process tree...')
+                # Kill the entire group ID matching the process PID
+                os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+        except ProcessLookupError:
+            pass  # Process was already closed cleanly
+
+    # This will catch regular exits, uncaught exceptions,
+    # AND KeyboardInterrupts (Ctrl+C)
+    atexit.register(cleanup)
 
     return process
