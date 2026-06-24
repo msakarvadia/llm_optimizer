@@ -30,13 +30,17 @@ class GEPAMutator(Mutator):
     ) -> str:
         """Single LLM-based Mutation of parent solutions."""
         first_prompt = self.get_first_prompt(past_solutions, task)
-        first_response = prompt_lm(self.client, first_prompt)
+        first_response = prompt_lm(self.client, first_prompt, self.model_name)
         second_prompt = self.get_second_prompt(
             past_solutions,
             task,
             first_response,
         )
-        second_response = prompt_lm(self.client, second_prompt)
+        second_response = prompt_lm(
+            self.client,
+            second_prompt,
+            self.model_name,
+        )
         return second_response
 
     def get_second_prompt(
