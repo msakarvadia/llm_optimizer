@@ -75,6 +75,9 @@ class KernelBench(Task):
         self.problem_id = kwargs['problem_id']
         self.level = kwargs['level']
         self.backend = kwargs['backend']  # cuda/triton/tilelang
+        self.precision = 'fp32'  # tilelang need fp16
+        if self.backend == 'tilelang':
+            self.precision = 'fp16'  # tilelang need fp16
 
         dataset = construct_kernelbench_dataset(
             level=self.level,
@@ -91,6 +94,7 @@ class KernelBench(Task):
             option='one_shot',  # <--- show example of generation format via minimum example # noqa
             # include_hardware=True, # <--- Enable hardware specific context
             # gpu_name="T4"          # <--- Specify your GPU (matches keys in gpu_specs.py) # noqa
+            precision=self.precision,
         )
 
         # To prevent hacking
@@ -108,7 +112,7 @@ class KernelBench(Task):
         # self.seed_candidate = example_add_model_generation
         # self.seed_candidate = "# follow the system prompt and evolve this into python code w/ custom kernel" # noqa
         self.seed_candidate = (
-            'Write a CUDA kernel to replace '
+            f'Write a {self.backend} kernel to replace '
             'the given PyTorch model for better performance. '
             'Include all imports. Output Python code with '
             ' ModelNew using load_inline inside a markdown code block.'
@@ -146,6 +150,7 @@ class KernelBench(Task):
             'python',
             '../KernelBench/scripts/run_and_check.py',
             f'backend={self.backend}',
+            f'precision={self.precision}',
             'ref_origin=kernelbench',
             f'level={self.level}',
             f'problem_id={self.problem_id}',

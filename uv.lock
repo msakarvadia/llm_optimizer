@@ -2798,12 +2798,15 @@ dependencies = [
     { name = "google-genai" },
     { name = "kernelbench" },
     { name = "litellm" },
+    { name = "nvidia-cutlass-dsl" },
     { name = "openai" },
     { name = "openevolve" },
     { name = "pandas", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "pandas", version = "3.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "requests" },
     { name = "sentence-transformers" },
+    { name = "tilelang" },
+    { name = "triton" },
 ]
 
 [package.optional-dependencies]
@@ -2855,6 +2858,7 @@ requires-dist = [
     { name = "mkdocstrings", marker = "extra == 'docs'", specifier = "==0.25.2" },
     { name = "mkdocstrings-python", marker = "extra == 'docs'", specifier = "==1.10.8" },
     { name = "mypy", marker = "extra == 'dev'" },
+    { name = "nvidia-cutlass-dsl" },
     { name = "openai" },
     { name = "openevolve" },
     { name = "pandas" },
@@ -2864,7 +2868,9 @@ requires-dist = [
     { name = "requests" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.2.0" },
     { name = "sentence-transformers" },
+    { name = "tilelang" },
     { name = "tox", marker = "extra == 'dev'" },
+    { name = "triton" },
     { name = "virtualenv", marker = "extra == 'dev'" },
 ]
 provides-extras = ["dev", "docs", "gpu"]

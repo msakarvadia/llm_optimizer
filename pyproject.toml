@@ -29,6 +29,9 @@ dependencies = [
     "kernelbench",
     "sentence-transformers",
     "google-genai",
+    "tilelang",
+    "triton",
+    "nvidia-cutlass-dsl",
 ]
 
 [project.urls]
