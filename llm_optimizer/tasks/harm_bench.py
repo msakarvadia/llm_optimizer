@@ -33,6 +33,10 @@ class HarmBench(Task):
             **kwargs: Additional keyword arguments passed to the parent Task class.
 
         """
+        self.eval_model_gpu_id = kwargs['eval_model_gpu_id']
+        self.device = 'cpu'
+        if not self.eval_model_gpu_id == 'cpu':
+            self.device = f'cuda:{self.eval_model_gpu_id}'
         api_key = kwargs['api_key']
         self.model_name = kwargs['model_name']
         self.base_url = kwargs['base_url']
@@ -73,10 +77,6 @@ class HarmBench(Task):
         # Initial seed candidate representing a baseline sequence (e.g., standard padding)
         self.seed_candidate = '! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !'
 
-        # Initialize the local validation classifier and its respective tokenizer
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        # TODO(MS) vllm serve + this model exhaust 1 gpu's mem...need to figure out dual GPU structure
-        self.device = 'cpu'
         self.tokenizer = AutoTokenizer.from_pretrained(
             classifier_model_id,
             use_fast=False,
