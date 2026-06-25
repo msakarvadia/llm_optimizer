@@ -11,6 +11,7 @@ from llm_optimizer.optimizers.base_optimizer import Optimizer
 from llm_optimizer.optimizers.gepa import GEPAOptimizer
 from llm_optimizer.optimizers.open_evolve import OpenEvolveOptimizer
 from llm_optimizer.optimizers.opro import OPROOptimizer
+from llm_optimizer.tasks.base_task import Task
 from llm_optimizer.tasks.harm_bench import HarmBench
 from llm_optimizer.tasks.kernel_bench import KernelBench
 from llm_optimizer.tasks.maximize_function import MaximizeFunction
@@ -130,6 +131,24 @@ if __name__ == '__main__':
         choices=['tweet', 'function', 'kernelbench', 'harmbench', 'tsp'],
         help="""Name of individual task being optimized.""",
     )
+    parser.add_argument(
+        '--inference_model_name',
+        type=str,
+        default='google/gemma-4-E4B-it',
+        choices=[
+            'gemini-3.5-flash',
+            'openai/gpt-oss-120b',
+            'meta-llama/Llama-3.1-8B-Instruct',
+            'mlabonne/NeuralDaredevil-8B-abliterated',
+            'google/gemma-4-E4B-it',
+        ],
+        help="""Name of llm to do inference w/ to test prompt optimization
+        for example, on harmbench, this model is queried w/ adversarial
+        prefixes
+
+        relevant to tasks: harmbench, ...
+        """,
+    )
 
     # kernel bench args
     parser.add_argument(
@@ -178,12 +197,39 @@ if __name__ == '__main__':
     # Manage optimizer llm
     with open('../config.yaml', encoding='utf-8') as file:
         config = yaml.safe_load(file)
+
+    args.inference_base_url = config[args.inference_model_name]['base_url']
+    inference_key_env_name = config[args.inference_model_name]['key_env_name']
+    if inference_key_env_name == 'vllm':
+        # if task requires additional infernece model, start vllm server
+        print('EVALUATING IF VLLM SERVING NEEDS STARTING FOR inference model')
+        if args.task_name in ['harmbench']:
+            gpu_id = 1
+            port = 8001
+            inference_process = start_vllm_server(
+                model_name=args.inference_model_name,
+                port=port,
+                gpu_id=gpu_id,
+            )
+            # NOTE(MS): OVERRIDE base url to point to custom port
+            args.inference_base_url = f'http://localhost:{port}/v1'
+        args.inference_api_key = 'EMPTY'
+    else:
+        args.inference_api_key = os.getenv(inference_key_env_name)
+
     print(config)
     args.base_url = config[args.optimizer_llm]['base_url']
     key_env_name = config[args.optimizer_llm]['key_env_name']
     if key_env_name == 'vllm':
-        # TODO: start server
-        process = start_vllm_server(model_name=args.optimizer_llm)
+        gpu_id = 0
+        port = 8000
+        process = start_vllm_server(
+            model_name=args.optimizer_llm,
+            port=port,
+            gpu_id=gpu_id,
+        )
+        # NOTE(MS): OVERRIDE base url to point to custom port
+        args.base_url = f'http://localhost:{port}/v1'
         args.api_key = 'EMPTY'
     else:
         args.api_key = os.getenv(key_env_name)
@@ -202,14 +248,18 @@ if __name__ == '__main__':
             'seed': args.seed,
         },
         'function': {},
-        'harmbench': {'target_prompt': harm_bench_prompt},
+        'harmbench': {
+            'api_key': args.inference_api_key,
+            'base_url': args.inference_base_url,
+            'model_name': args.inference_model_name,
+        },
         'kernelbench': {
             'level': args.level,
             'problem_id': args.problem_id,
             'backend': args.backend,
         },
     }
-    tasks = {
+    tasks: dict[str, type[Task]] = {
         'tweet': TweetEngagement,
         'tsp': TravelingSalesman,
         'function': MaximizeFunction,

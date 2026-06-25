@@ -84,7 +84,11 @@ def prompt_lm(
         )
 
 
-def start_vllm_server(model_name: str) -> subprocess.Popen[str] | None:
+def start_vllm_server(
+    model_name: str,
+    port: int = 8000,
+    gpu_id: int = 0,
+) -> subprocess.Popen[str] | None:
     """Start a vllm server for HF model."""
     cmd = [
         'python',
@@ -95,8 +99,10 @@ def start_vllm_server(model_name: str) -> subprocess.Popen[str] | None:
         '--host',
         '0.0.0.0',
         '--port',
-        '8000',
+        str(port),
         '--enable-prefix-caching',
+        '--gpu-memory-utilization',
+        '0.80',
     ]
 
     print('Launching vLLM Server...')
@@ -104,6 +110,8 @@ def start_vllm_server(model_name: str) -> subprocess.Popen[str] | None:
     # Capture environment variables from your active shell session
     env_context = os.environ.copy()
     print(f"{env_context['HF_TOKEN']=}")
+
+    env_context['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
 
     # Tell Python HTTP engines to trust standard system root files
     # instead of local virtualenv variations that might be broken
@@ -121,7 +129,10 @@ def start_vllm_server(model_name: str) -> subprocess.Popen[str] | None:
     print('Waiting for model to finish loading into GPU VRAM...')
     while True:
         try:
-            response = requests.get('http://localhost:8000/health', timeout=2)
+            response = requests.get(
+                f'http://localhost:{port}/health',
+                timeout=2,
+            )
             if response.status_code == 200:  # noqa: PLR2004
                 print('vLLM Server is up, healthy, and ready for queries!')
                 break
