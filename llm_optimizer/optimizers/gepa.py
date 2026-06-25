@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import random
 from typing import Any
 
@@ -34,7 +35,9 @@ class GEPAOptimizer(Optimizer):
         self.task = task
 
         # NOTE(MS): for litellm, need to add the 'gemini/' prefix
-        self.LLM_MODEL = 'gemini/gemini-3.5-flash'
+        os.environ['OPENAI_API_BASE'] = kwargs['base_url']
+        os.environ['OPENAI_API_KEY'] = kwargs['api_key']
+        self.LLM_MODEL = f'openai/{kwargs["model_name"]}'
 
         # NOTE(MS): variables to manage in-context examples/rewards
         self.n = num_past_sol
