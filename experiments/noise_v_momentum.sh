@@ -2,7 +2,7 @@
 #SBATCH --gres=gpu:1       # Request GPU "generic resources"
 #SBATCH --cpus-per-task=3  # Refer to cluster's documentation for the right CPU/GPU ratio
 #SBATCH --mem=32000M       # Memory proportional to GPUs: 32000 Cedar, 47000 Béluga, 64000 Graham.
-#SBATCH --time=0-06:00     # DD-HH:MM:SS
+#SBATCH --time=0-12:00     # DD-HH:MM:SS
 
 
 # Simple experiment to understand how OPRO reacts to noise and momentum.'
