@@ -27,7 +27,12 @@ class TweetEngagement(Task):
         self.metric = metric
         self.direction = direction
         self.seed_candidate = 'placeholder tweet'
-        self.model = Detoxify('original')
+        self.eval_model_gpu_id = kwargs['eval_model_gpu_id']
+
+        self.device = 'cpu'
+        if self.eval_model_gpu_id != 'cpu':
+            self.device = f'cuda:{self.eval_model_gpu_id}'
+        self.model = Detoxify('original', device=self.device)
 
     def evaluate(self, solution: str) -> tuple[float, dict[str, Any]]:
         """Evaluate LLM optimized solution."""

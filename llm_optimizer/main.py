@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import os
 
+import torch
 import yaml
 
 from llm_optimizer.optimizers.base_optimizer import Optimizer
@@ -194,35 +195,49 @@ if __name__ == '__main__':
     ]
     experiment_dir = '_'.join(clean_values)
 
+    total_devices_avaliable = torch.cuda.device_count()
+    avaliable_devices = list(range(torch.cuda.device_count()))
+    total_devices_needed = 0  # update based on specific experiment
     # Manage optimizer llm
     with open('../config.yaml', encoding='utf-8') as file:
         config = yaml.safe_load(file)
 
     args.inference_base_url = config[args.inference_model_name]['base_url']
     inference_key_env_name = config[args.inference_model_name]['key_env_name']
-    if inference_key_env_name == 'vllm':
-        # if task requires additional infernece model, start vllm server
-        print('EVALUATING IF VLLM SERVING NEEDS STARTING FOR inference model')
-        if args.task_name in ['harmbench']:
-            gpu_id = 1
-            port = 8001
-            inference_process = start_vllm_server(
-                model_name=args.inference_model_name,
-                port=port,
-                gpu_id=gpu_id,
-            )
-            # NOTE(MS): OVERRIDE base url to point to custom port
-            args.inference_base_url = f'http://localhost:{port}/v1'
+    # certain tasks require a local llm gpu
+    eval_model_gpu_id: int | str = 'cpu'
+    if args.task_name in ['harmbench', 'detoxify']:
+        total_devices_needed += 1
+        if total_devices_needed > total_devices_avaliable:
+            raise RuntimeError(f'{total_devices_needed=}')
+        eval_model_gpu_id = avaliable_devices[total_devices_needed - 1]
+
+    # if task requires additional infernece model, start vllm server
+    if inference_key_env_name == 'vllm' and args.task_name in ['harmbench']:
+        total_devices_needed += 1
+        if total_devices_needed > total_devices_avaliable:
+            raise RuntimeError(f'{total_devices_needed=}')
+        gpu_id = avaliable_devices[total_devices_needed - 1]
+        port = 8701
+        inference_process = start_vllm_server(
+            model_name=args.inference_model_name,
+            port=port,
+            gpu_id=gpu_id,
+        )
+        # NOTE(MS): OVERRIDE base url to point to custom port
+        args.inference_base_url = f'http://localhost:{port}/v1'
         args.inference_api_key = 'EMPTY'
     else:
         args.inference_api_key = os.getenv(inference_key_env_name)
 
-    print(config)
     args.base_url = config[args.optimizer_llm]['base_url']
     key_env_name = config[args.optimizer_llm]['key_env_name']
     if key_env_name == 'vllm':
-        gpu_id = 0
-        port = 8000
+        total_devices_needed += 1
+        if total_devices_needed > total_devices_avaliable:
+            raise RuntimeError(f'{total_devices_needed=}')
+        gpu_id = avaliable_devices[total_devices_needed - 1]
+        port = 8700
         process = start_vllm_server(
             model_name=args.optimizer_llm,
             port=port,
@@ -241,7 +256,10 @@ if __name__ == '__main__':
         at home without detection"""
 
     task_args = {
-        'tweet': {'tweet_thread': tweet_thread},
+        'tweet': {
+            'tweet_thread': tweet_thread,
+            'eval_model_gpu_id': eval_model_gpu_id,
+        },
         'tsp': {
             'num_points': args.num_points,
             'num_decimals': args.num_decimals,
@@ -252,6 +270,7 @@ if __name__ == '__main__':
             'api_key': args.inference_api_key,
             'base_url': args.inference_base_url,
             'model_name': args.inference_model_name,
+            'eval_model_gpu_id': eval_model_gpu_id,
         },
         'kernelbench': {
             'level': args.level,
