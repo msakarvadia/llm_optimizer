@@ -103,6 +103,11 @@ def start_vllm_server(
         '--enable-prefix-caching',
         '--gpu-memory-utilization',
         '0.80',
+        # if you want all INFO prints, disable flag:
+        '--uvicorn-log-level',
+        'warning',
+        # scilences throughput/cache metrics
+        '--disable-log-stats',
     ]
 
     print('Launching vLLM Server...')
