@@ -169,7 +169,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
     args_dict = vars(args).copy()
     args_dict.pop('num_iter', None)
-    clean_values = [str(val).replace('.', '') for val in args_dict.values()]
+    clean_values = [
+        str(val).replace('.', '').replace('/', '')
+        for val in args_dict.values()
+    ]
     experiment_dir = '_'.join(clean_values)
 
     # Manage optimizer llm

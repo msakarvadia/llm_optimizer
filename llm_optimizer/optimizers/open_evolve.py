@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
 from openevolve import run_evolution
@@ -88,8 +87,8 @@ class OpenEvolveOptimizer(Optimizer):
         """Init optimizer."""
         self.task = task
 
-        self.LLM_MODEL = 'gemini-3.5-flash'
-        api_key = os.getenv('GEMINI_API_KEY')
+        self.LLM_MODEL = kwargs['model_name']
+        api_key = kwargs['api_key']
         if api_key is None:
             raise ValueError('API key not found.')
         self.config = Config()
@@ -97,7 +96,7 @@ class OpenEvolveOptimizer(Optimizer):
             LLMModelConfig(
                 name=self.LLM_MODEL,
                 api_key=api_key,
-                api_base='https://generativelanguage.googleapis.com/v1beta/openai/',
+                api_base=kwargs['base_url'],
             ),
         ]
 
@@ -105,8 +104,6 @@ class OpenEvolveOptimizer(Optimizer):
         self.n = num_past_sol
         self.noise = noise
         self.num_parallel_search = num_parallel_search
-        self.shuffle = kwargs['shuffle']
-        self.order = kwargs['order']
         print(self.config)
         self.config.database.archive_size = num_past_sol
 
