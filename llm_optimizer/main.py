@@ -83,6 +83,16 @@ if __name__ == '__main__':
             """,
     )
     parser.add_argument(
+        '--truncate_generated_solution',
+        type=int,
+        default=-1,
+        help="""Optional; value = -1 means it won't be enforce
+            if value is greater than 0, then generated solutions will
+            be truncated to specified length
+            (useful for limited context models)
+            """,
+    )
+    parser.add_argument(
         '--max_population_size',
         type=int,
         default=1000,
@@ -311,6 +321,7 @@ if __name__ == '__main__':
         model_name=args.optimizer_llm,
         base_url=args.base_url,
         api_key=args.api_key,
+        truncate_generated_solution=args.truncate_generated_solution,
     )
 
     # optimize

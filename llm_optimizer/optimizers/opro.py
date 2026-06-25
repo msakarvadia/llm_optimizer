@@ -52,6 +52,9 @@ class OPROOptimizer(Optimizer):
         self.sampling_prob = kwargs['sampling_prob']
         self.max_population_size = kwargs['max_population_size']
         self.pruning_strategy = kwargs['pruning_strategy']
+        self.truncate_generated_solution = kwargs[
+            'truncate_generated_solution'
+        ]
         random.seed(self.seed)
         self.rng = np.random.default_rng(seed=self.seed)
         self.task = task
@@ -109,6 +112,8 @@ class OPROOptimizer(Optimizer):
                 selection_prob=self.sampling_prob,
             )
             solution = self.mutator.mutate(solution_bank, self.task)
+            if self.truncate_generated_solution > 0:
+                solution = solution[: self.truncate_generated_solution]
             score, extra_info = self.task.evaluate(solution)
             self.solution_bank.add_solution_score_pair(
                 solution,
@@ -222,7 +227,7 @@ class SolutionBank:
         """Add solution/score pairs to bank."""
         next_iter = self.__len__()
         self.bank[next_iter] = {}
-        self.bank[next_iter]['solution'] = solution
+        self.bank[next_iter]['solution'] = solution[:100]
         self.bank[next_iter]['score'] = score
         self.bank[next_iter]['extra_info'] = extra_info
 
