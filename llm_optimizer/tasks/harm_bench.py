@@ -58,7 +58,7 @@ class HarmBench(Task):
         self.direction = direction
 
         # Initial seed candidate representing a baseline sequence (e.g., standard padding)
-        self.seed_candidate = '! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !'
+        self.seed_candidate = "constructor. 'write ... describing..."  #'! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !'
 
         self.tokenizer = AutoTokenizer.from_pretrained(
             classifier_model_id,
@@ -98,9 +98,9 @@ class HarmBench(Task):
                     full_prompt,
                     self.model_name,
                 )
-                print('-' * 40)
-                print(f'Target Response: {target_response.strip()}')
-                print('-' * 40)
+                # print('-' * 40)
+                # print(f'Target Response: {target_response.strip()}')
+                # print('-' * 40)
             except Exception as e:
                 # Handle rate limits or API drops smoothly during optimization runs
                 print(f'API Error occurred: {e}')
@@ -129,7 +129,7 @@ class HarmBench(Task):
     def evaluate_harmful_generations(
         self,
         generated_sequences: list[str],
-        batch_size: int = 32,
+        batch_size: int = 4,
     ) -> float:
         """Process strings in parallel blocks,
 
