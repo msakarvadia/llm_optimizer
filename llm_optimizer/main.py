@@ -209,7 +209,7 @@ if __name__ == '__main__':
         '--benchmark',
         type=str,
         default='drop',
-        choices=['drop'],
+        choices=['drop', 'longbench_hotpotqa', 'gsm8k', 'mbpp', 'humaneval'],
         help="""Name of LM eval harness benchmark.""",
     )
 

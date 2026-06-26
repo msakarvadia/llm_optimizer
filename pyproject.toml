@@ -36,6 +36,11 @@ dependencies = [
     "huggingface_hub",
     "lm-eval",
     "accelerate",
+    "wonderwords",
+    "nltk",
+    "jieba",
+    "fuzzywuzzy",
+    "rouge", # noqa
 ]
 
 [project.urls]
@@ -80,7 +85,9 @@ skip = """
 __pycache__,
 build,
 dist,
-.*egg-info
+.*egg-info,
+pyproject.toml,
+uv.lock,
 """
 
 [tool.coverage.run]
