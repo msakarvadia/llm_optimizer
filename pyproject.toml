@@ -34,6 +34,8 @@ dependencies = [
     "nvidia-cutlass-dsl",
     "vllm",
     "huggingface_hub",
+    "lm-eval",
+    "accelerate",
 ]
 
 [project.urls]
