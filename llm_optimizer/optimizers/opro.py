@@ -227,7 +227,7 @@ class SolutionBank:
         """Add solution/score pairs to bank."""
         next_iter = self.__len__()
         self.bank[next_iter] = {}
-        self.bank[next_iter]['solution'] = solution[:100]
+        self.bank[next_iter]['solution'] = solution
         self.bank[next_iter]['score'] = score
         self.bank[next_iter]['extra_info'] = extra_info
 
