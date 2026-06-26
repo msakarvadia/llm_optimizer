@@ -16,6 +16,7 @@ from llm_optimizer.tasks.base_task import Task
 from llm_optimizer.tasks.harm_bench import HarmBench
 from llm_optimizer.tasks.kernel_bench import KernelBench
 from llm_optimizer.tasks.maximize_function import MaximizeFunction
+from llm_optimizer.tasks.prompt_optimization import PromptOptimization
 from llm_optimizer.tasks.traveling_salesman import TravelingSalesman
 from llm_optimizer.tasks.tweet_engagement import TweetEngagement
 from llm_optimizer.utils import start_vllm_server
@@ -139,7 +140,14 @@ if __name__ == '__main__':
         '--task_name',
         type=str,
         default='tweet',
-        choices=['tweet', 'function', 'kernelbench', 'harmbench', 'tsp'],
+        choices=[
+            'tweet',
+            'function',
+            'kernelbench',
+            'harmbench',
+            'tsp',
+            'prompt',
+        ],
         help="""Name of individual task being optimized.""",
     )
     parser.add_argument(
@@ -196,6 +204,15 @@ if __name__ == '__main__':
         help="""# decimals to report in distance.""",
     )
 
+    # prompt optimization args
+    parser.add_argument(
+        '--benchmark',
+        type=str,
+        default='drop',
+        choices=['drop'],
+        help="""Name of LM eval harness benchmark.""",
+    )
+
     args = parser.parse_args()
     args_dict = vars(args).copy()
     args_dict.pop('num_iter', None)
@@ -216,7 +233,7 @@ if __name__ == '__main__':
     inference_key_env_name = config[args.inference_model_name]['key_env_name']
     # certain tasks require a local llm gpu
     eval_model_gpu_id: int | str = 'cpu'
-    if args.task_name in ['harmbench', 'detoxify']:
+    if args.task_name in ['harmbench', 'detoxify', 'prompt']:
         total_devices_needed += 1
         if total_devices_needed > total_devices_avaliable:
             raise RuntimeError(f'{total_devices_needed=}')
@@ -287,6 +304,11 @@ if __name__ == '__main__':
             'problem_id': args.problem_id,
             'backend': args.backend,
         },
+        'prompt': {
+            'model_name': args.inference_model_name,
+            'eval_model_gpu_id': eval_model_gpu_id,
+            'benchmark': args.benchmark,
+        },
     }
     tasks: dict[str, type[Task]] = {
         'tweet': TweetEngagement,
@@ -294,6 +316,7 @@ if __name__ == '__main__':
         'function': MaximizeFunction,
         'harmbench': HarmBench,
         'kernelbench': KernelBench,
+        'prompt': PromptOptimization,
     }
     # instanitate task
     task_arg = task_args[args.task_name]

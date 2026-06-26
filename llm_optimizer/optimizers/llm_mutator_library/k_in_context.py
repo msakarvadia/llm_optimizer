@@ -36,6 +36,15 @@ class KInContextMutator(Mutator):
                     f'{task.metric}: {score}\n'
                     f'Additional meta-data: {extra_info}'
                 )
+                block = (
+                    f'### Past Example\n\n'
+                    f'**[PREVIOUSLY GENERATED SOLUTION:]**\n'
+                    f'{solution.strip()}\n\n'
+                    f'**[SCORE ASSIGNED TO SOLUTION:]**\n'
+                    f'{task.metric}: {score}\n\n'
+                    f'**[RUN METADATA:]**\n'
+                    f'{extra_info}'
+                )
                 example_blocks.append(block)
 
             example_str = '\n\n'.join(example_blocks)
