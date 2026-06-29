@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import random
+import shutil
 import warnings
 from typing import Any
 
@@ -45,7 +46,15 @@ class OPROOptimizer(Optimizer):
         # Capture arguments and flatten kwargs
         # build experiment path
         self.experiment_dir = f'temp_results_dir/{kwargs["experiment_dir"]}/'
-        print(f'{self.experiment_dir=}')
+        os.makedirs(self.experiment_dir, exist_ok=True)
+        self.init_population_path = kwargs['init_population_path']
+        if os.path.isfile(self.init_population_path):
+            for file_name in [
+                'long_running_solution_bank.json',
+                'current_solution_bank.json',
+            ]:
+                destination_path = os.path.join(self.experiment_dir, file_name)
+                shutil.copy(self.init_population_path, destination_path)
 
         self.seed = kwargs['seed']
         self.sampling_strategy_name = kwargs['sampling_strategy_name']
@@ -177,8 +186,6 @@ class SolutionBank:
     def save_to_json(self, path: str) -> None:
         """Add solution/score pairs to bank."""
         # Ensure the directory exists; do nothing if it already does
-        path = path.replace('.', '')
-        os.makedirs(path, exist_ok=True)
 
         print(self.bank)
         full_path = os.path.join(path, 'long_running_solution_bank.json')

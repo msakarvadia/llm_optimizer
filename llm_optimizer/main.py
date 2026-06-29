@@ -134,6 +134,15 @@ if __name__ == '__main__':
         default=0,  # TODO(MS): make sure this is used
         help="""Random Seed.""",
     )
+    parser.add_argument(
+        '--init_population_path',
+        type=str,
+        default=None,
+        help="""Name of path to json file which contains the 'seed'
+        population of candidate solutions...will be copied into the
+        experimental directory to kick off optimization
+        """,
+    )
 
     # task args
     parser.add_argument(
@@ -345,6 +354,7 @@ if __name__ == '__main__':
         base_url=args.base_url,
         api_key=args.api_key,
         truncate_generated_solution=args.truncate_generated_solution,
+        init_population_path=args.init_population_path,
     )
 
     # optimize
