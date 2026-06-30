@@ -137,7 +137,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--init_population_path',
         type=str,
-        default=None,
+        default='placeholder_path/',
         help="""Name of path to json file which contains the 'seed'
         population of candidate solutions...will be copied into the
         experimental directory to kick off optimization
@@ -230,6 +230,9 @@ if __name__ == '__main__':
         for val in args_dict.values()
     ]
     experiment_dir = '_'.join(clean_values)
+
+    # TODO(MS): wrap below logic into a run_experiment function
+    # we need to dynamically count how many GPUs each experiment needs
 
     total_devices_avaliable = torch.cuda.device_count()
     avaliable_devices = list(range(torch.cuda.device_count()))
@@ -338,6 +341,7 @@ if __name__ == '__main__':
         'open_evolve': OpenEvolveOptimizer,
     }
     optimizer_class = optimizers[args.optimizer_name]
+
     # instantiate optimizer
     llm_optimizer = optimizer_class(
         task=task,
