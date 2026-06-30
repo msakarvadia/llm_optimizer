@@ -1,4 +1,4 @@
 # Experiment launch scripts
 
-- [`experiments.py`](https://github.com/msakarvadia/llm_optimizer/blob/main/experiments/experiments.py): useage: `uv run python experiments.py`; or you can call it from `multi_node_ray_launch_exps.sh` (below)
+- [`experiments.py`](https://github.com/msakarvadia/llm_optimizer/blob/main/experiments/experiments.py): useage: `uv run python experiments.py` (will start local ray cluster); or you can call it from `multi_node_ray_launch_exps.sh` (below) (will initiailze the previously launch ray cluster)
 - [`multi_node_ray_launch_exps.sh`](https://github.com/msakarvadia/llm_optimizer/blob/main/experiments/multi_node_ray_launch_exps.sh): submits a slurm job, starts a ray cluster (adapts to whatever resources are present) and then launches experiment script. usage: `multi_node_ray_launch_exps.sh` for local execution on whatever resources are present. Or submit to slurm via `sbatch multi_node_ray_launch_exps.sh`. Change the slurm arguments to match your projects/username/cluster etc.
