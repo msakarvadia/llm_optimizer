@@ -238,7 +238,7 @@ if __name__ == '__main__':
     avaliable_devices = list(range(torch.cuda.device_count()))
     total_devices_needed = 0  # update based on specific experiment
     # Manage optimizer llm
-    with open('../config.yaml', encoding='utf-8') as file:
+    with open('config.yaml', encoding='utf-8') as file:
         config = yaml.safe_load(file)
 
     args.inference_base_url = config[args.inference_model_name]['base_url']

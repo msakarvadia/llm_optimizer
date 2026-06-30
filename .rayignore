@@ -1,0 +1,7 @@
+# .rayignore
+.venv/
+.git/
+**/test_build/
+**/*.o
+**/*.so
+**/*.a
