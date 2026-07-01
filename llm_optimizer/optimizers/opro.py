@@ -46,6 +46,7 @@ class OPROOptimizer(Optimizer):
         # Capture arguments and flatten kwargs
         # build experiment path
         self.experiment_dir = f'temp_results_dir/{kwargs["experiment_dir"]}/'
+        print(f'{self.experiment_dir=}')
         os.makedirs(self.experiment_dir, exist_ok=True)
         self.init_population_path = kwargs['init_population_path']
         if os.path.isfile(self.init_population_path):
@@ -187,13 +188,33 @@ class SolutionBank:
         """Add solution/score pairs to bank."""
         # Ensure the directory exists; do nothing if it already does
 
+        def json_serializable_fallback(obj: Any) -> str:
+            if isinstance(obj, Exception):
+                return repr(
+                    obj,
+                )  # Converts ValueError("...") into "ValueError('...')"
+            raise TypeError(
+                f'Object of type {obj.__class__.__name__}',
+                ' is not JSON serializable',
+            )
+
         print(self.bank)
         full_path = os.path.join(path, 'long_running_solution_bank.json')
         with open(full_path, 'w', encoding='utf-8') as json_file:
-            json.dump(self.never_prune_bank, json_file, indent=4)
+            json.dump(
+                self.never_prune_bank,
+                json_file,
+                indent=4,
+                default=json_serializable_fallback,
+            )
         full_path = os.path.join(path, 'current_solution_bank.json')
         with open(full_path, 'w', encoding='utf-8') as json_file:
-            json.dump(self.bank, json_file, indent=4)
+            json.dump(
+                self.bank,
+                json_file,
+                indent=4,
+                default=json_serializable_fallback,
+            )
 
     def prune_population(self) -> None:
         """Remove old population solutions."""
