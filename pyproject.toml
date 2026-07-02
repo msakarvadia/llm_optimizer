@@ -42,6 +42,12 @@ dependencies = [
     "fuzzywuzzy",
     "rouge", # noqa
     "ray",
+    "colorama",
+    "ConfigArgParse",
+    "filelock",
+    "numpy",
+    "PyYAML",
+    "wandb",
 ]
 
 [project.urls]
