@@ -23,7 +23,7 @@ from llm_optimizer.tasks.base_task import Task
 
 
 class CantBeLateOptimization(Task):
-    """Could scheduling algo 'task'."""
+    """Cloud scheduling algo 'task'."""
 
     def __init__(
         self,
