@@ -48,6 +48,7 @@ dependencies = [
     "numpy",
     "PyYAML",
     "wandb",
+    "networkx",
 ]
 
 [project.urls]
