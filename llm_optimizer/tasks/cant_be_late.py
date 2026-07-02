@@ -7,41 +7,48 @@ https://github.com/gepa-ai/gepa/tree/main/examples/adrs/can_be_late
 
 from __future__ import annotations
 
+import random
 from pathlib import Path
 from typing import Any
 
-from cant_be_late_utils.dataset import load_trace_dataset
-from cant_be_late_utils.simulation import FAILED_SCORE
-from cant_be_late_utils.simulation import get_program_path
-from cant_be_late_utils.simulation import run_simulation
-from cant_be_late_utils.simulation import simulation_failure_info
-from cant_be_late_utils.simulation import simulation_success_info
-from cant_be_late_utils.simulation import syntax_failure_info
-from cant_be_late_utils.simulation import syntax_is_valid
-
 from llm_optimizer.tasks.base_task import Task
+from llm_optimizer.tasks.cant_be_late_utils.dataset import load_trace_dataset
+from llm_optimizer.tasks.cant_be_late_utils.simulation import FAILED_SCORE
+from llm_optimizer.tasks.cant_be_late_utils.simulation import get_program_path
+from llm_optimizer.tasks.cant_be_late_utils.simulation import run_simulation
+from llm_optimizer.tasks.cant_be_late_utils.simulation import (
+    simulation_failure_info,
+)
+from llm_optimizer.tasks.cant_be_late_utils.simulation import (
+    simulation_success_info,
+)
+from llm_optimizer.tasks.cant_be_late_utils.simulation import (
+    syntax_failure_info,
+)
+from llm_optimizer.tasks.cant_be_late_utils.simulation import syntax_is_valid
 
 
-class CantBeLateOptimization(Task):
+class CantBeLate(Task):
     """Cloud scheduling algo 'task'."""
 
     def __init__(
         self,
-        metric: str = 'cost',
+        metric: str = 'average cost',
         direction: str = 'minimize',
+        max_traces: int = 15,
         **kwargs: Any,
     ) -> None:
         """Initialize task."""
+        self.rng = random.Random(kwargs['seed'])
         self.task_description = f"""{OPTIMIZATION_OBJECTIVE}\n
         {OPTIMIZATION_BACKGROUND}"""
 
-        self.solution_description = 'could scheduling algorithm'
+        self.solution_description = 'cloud scheduling algorithm'
         self.metric = metric
         self.direction = direction
         self.seed_candidate = INITIAL_PROGRAM
 
         # TODO(MS): load dataset
-        max_traces = 3
         dataset_root = (
             Path(__file__).resolve().parent
             / 'cant_be_late_utils'
@@ -60,12 +67,13 @@ class CantBeLateOptimization(Task):
 
     def evaluate(self, solution: str) -> tuple[float, dict[str, Any]]:
         """Evaluate algorithm."""
-        print(solution)
         program_path = get_program_path(solution)
+        print(f'{program_path=}')
 
-        score = 0
+        score = 0.0
+        # inplace shuffle
+        self.rng.shuffle(self.train_set)
         for example in self.train_set:
-            print(example)
             if not syntax_is_valid(program_path):
                 return FAILED_SCORE, syntax_failure_info(example)
 
@@ -79,15 +87,21 @@ class CantBeLateOptimization(Task):
                 return FAILED_SCORE, simulation_failure_info(error, example)
 
             score += -cost
-        print(score)
-        return score, simulation_success_info(score, example, details)
+        # NOTE(MS): we will only pass simulation success info for a single
+        # example; we shuffle trian_set so its random each time.
+        return score / len(self.train_set), simulation_success_info(
+            -cost,
+            example,
+            details,
+        )
 
 
 OPTIMIZATION_OBJECTIVE = """Optimize a cloud scheduling strategy for the "Can't Be Late" problem.
 
 The strategy decides when to use SPOT instances (cheap but can be preempted) vs ON_DEMAND
 instances (expensive but reliable) to complete a task before its deadline. The goal is to
-minimize cost while ensuring the task completes on time."""
+minimize cost while ensuring the task completes on time.
+Output only the executable Python code to accomplish the task."""
 
 OPTIMIZATION_BACKGROUND = """Key information about the problem domain:
 
@@ -144,8 +158,8 @@ class EvolveSingleRegionStrategy(Strategy):
         return cls(args)
 """
 
-if __name__ == '__main__':
-    optimization_task = CantBeLateOptimization()
-    score, info = optimization_task.evaluate(optimization_task.seed_candidate)
-    print(score)
-    print(info)
+# if __name__ == '__main__':
+#    optimization_task = CantBeLate(seed=42)
+#    score, info = optimization_task.evaluate(optimization_task.seed_candidate)
+#    print(score)
+#    print(info)
