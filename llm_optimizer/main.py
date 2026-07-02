@@ -13,6 +13,7 @@ from llm_optimizer.optimizers.gepa import GEPAOptimizer
 from llm_optimizer.optimizers.open_evolve import OpenEvolveOptimizer
 from llm_optimizer.optimizers.opro import OPROOptimizer
 from llm_optimizer.tasks.base_task import Task
+from llm_optimizer.tasks.cant_be_late import CantBeLate
 from llm_optimizer.tasks.harm_bench import HarmBench
 from llm_optimizer.tasks.kernel_bench import KernelBench
 from llm_optimizer.tasks.maximize_function import MaximizeFunction
@@ -156,6 +157,7 @@ if __name__ == '__main__':
             'harmbench',
             'tsp',
             'prompt',
+            'cantbelate',
         ],
         help="""Name of individual task being optimized.""",
     )
@@ -304,6 +306,9 @@ if __name__ == '__main__':
             'num_decimals': args.num_decimals,
             'seed': args.seed,
         },
+        'cantbelate': {
+            'seed': args.seed,
+        },
         'function': {},
         'harmbench': {
             'api_key': args.inference_api_key,
@@ -329,6 +334,7 @@ if __name__ == '__main__':
         'harmbench': HarmBench,
         'kernelbench': KernelBench,
         'prompt': PromptOptimization,
+        'cantbelate': CantBeLate,
     }
     # instanitate task
     task_arg = task_args[args.task_name]

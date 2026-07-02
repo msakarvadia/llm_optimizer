@@ -196,3 +196,7 @@ kernelbench = { path = "./KernelBench", editable = true }
 [[tool.mypy.overrides]]
 module = "llm_optimizer.tasks.traveling_salesman"
 ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "llm_optimizer.tasks.cant_be_late_utils.*"
+ignore_errors = true
