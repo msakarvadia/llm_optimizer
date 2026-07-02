@@ -1,0 +1,6 @@
+Region/Instance: us-east-2a_v100_1
+Original data points: 20158
+Gap seconds: 300
+Total duration: 1679.8 hours
+Generated traces: 10
+Trace length: 48 hours
