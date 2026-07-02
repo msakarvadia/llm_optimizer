@@ -14,6 +14,7 @@ from llm_optimizer.optimizers.open_evolve import OpenEvolveOptimizer
 from llm_optimizer.optimizers.opro import OPROOptimizer
 from llm_optimizer.tasks.base_task import Task
 from llm_optimizer.tasks.cant_be_late import CantBeLate
+from llm_optimizer.tasks.cloud_cast import CloudCast
 from llm_optimizer.tasks.harm_bench import HarmBench
 from llm_optimizer.tasks.kernel_bench import KernelBench
 from llm_optimizer.tasks.maximize_function import MaximizeFunction
@@ -158,6 +159,7 @@ if __name__ == '__main__':
             'tsp',
             'prompt',
             'cantbelate',
+            'cloudcast',
         ],
         help="""Name of individual task being optimized.""",
     )
@@ -310,6 +312,7 @@ if __name__ == '__main__':
             'seed': args.seed,
         },
         'function': {},
+        'cloudcast': {},
         'harmbench': {
             'api_key': args.inference_api_key,
             'base_url': args.inference_base_url,
@@ -335,6 +338,7 @@ if __name__ == '__main__':
         'kernelbench': KernelBench,
         'prompt': PromptOptimization,
         'cantbelate': CantBeLate,
+        'cloudcast': CloudCast,
     }
     # instanitate task
     task_arg = task_args[args.task_name]
