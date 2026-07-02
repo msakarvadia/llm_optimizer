@@ -9,19 +9,22 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from cloudcast_utils.dataset import load_config_dataset
-from cloudcast_utils.simulation import evaluation_failure_info
-from cloudcast_utils.simulation import evaluation_success_info
-from cloudcast_utils.simulation import FAILED_SCORE
-from cloudcast_utils.simulation import get_program_path
-from cloudcast_utils.simulation import run_evaluation
-from cloudcast_utils.simulation import syntax_failure_info
-from cloudcast_utils.simulation import syntax_is_valid
-
 from llm_optimizer.tasks.base_task import Task
+from llm_optimizer.tasks.cloudcast_utils.dataset import load_config_dataset
+from llm_optimizer.tasks.cloudcast_utils.simulation import (
+    evaluation_failure_info,
+)
+from llm_optimizer.tasks.cloudcast_utils.simulation import (
+    evaluation_success_info,
+)
+from llm_optimizer.tasks.cloudcast_utils.simulation import FAILED_SCORE
+from llm_optimizer.tasks.cloudcast_utils.simulation import get_program_path
+from llm_optimizer.tasks.cloudcast_utils.simulation import run_evaluation
+from llm_optimizer.tasks.cloudcast_utils.simulation import syntax_failure_info
+from llm_optimizer.tasks.cloudcast_utils.simulation import syntax_is_valid
 
 
-class CloudCastOptimization(Task):
+class CloudCast(Task):
     """Could scheduling algo 'task'."""
 
     def __init__(
@@ -60,11 +63,11 @@ class CloudCastOptimization(Task):
         # print(solution)
         program_path = get_program_path(solution)
 
-        score = 0
-        cost = 0
-        transfer_time = 0
+        score = 0.0
+        cost = 0.0
+        transfer_time = 0.0
         example = self.train_set[0]
-        details = ''
+        details = {'placeholder': 0}
         for example in self.train_set:
             if not syntax_is_valid(program_path):
                 return FAILED_SCORE, syntax_failure_info(example)
@@ -79,7 +82,7 @@ class CloudCastOptimization(Task):
                 return FAILED_SCORE, evaluation_failure_info(error, example)
 
             score += 1.0 / (1.0 + cost)
-        return score, evaluation_success_info(
+        return score / len(self.train_set), evaluation_success_info(
             score,
             cost,
             transfer_time,
@@ -159,7 +162,8 @@ OPTIMIZATION_OBJECTIVE = """Optimize a broadcast routing algorithm for multi-clo
 
 The algorithm decides how to route data from a single source to multiple destinations
 across cloud providers (AWS, GCP, Azure). The goal is to minimize total cost
-(egress fees + instance costs) while maintaining good transfer times."""
+(egress fees + instance costs) while maintaining good transfer times.
+Output only the executable Python code to accomplish the task."""
 
 OPTIMIZATION_BACKGROUND = """Key information about the problem domain:
 
@@ -185,8 +189,8 @@ Optimization targets:
 3. Consider multipath routing for better bandwidth utilization
 4. Exploit cloud provider pricing differences (e.g., intra-provider is cheaper)"""
 
-if __name__ == '__main__':
-    optimization_task = CloudCastOptimization()
-    score, info = optimization_task.evaluate(optimization_task.seed_candidate)
-    print(score)
-    print(info)
+# if __name__ == '__main__':
+#    optimization_task = CloudCastOptimization()
+#    score, info = optimization_task.evaluate(optimization_task.seed_candidate)
+#    print(score)
+#    print(info)
