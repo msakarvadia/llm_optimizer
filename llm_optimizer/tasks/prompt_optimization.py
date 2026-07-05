@@ -98,21 +98,31 @@ class PromptOptimization(Task):
 
         # 10% test indices
         sample_count_10pct = max(1, int(total_instances * 0.10))
-        test_indices = random.sample(
+        # Only 50 test samples
+        sample_count = min(50, sample_count_10pct)
+        self.test_indices = random.sample(
             range(total_instances),
-            sample_count_10pct,
+            sample_count,
         )
 
         all_indices_set = set(range(total_instances))
-        self.test_indices_set = set(test_indices)
+        test_indices_set = set(self.test_indices)
 
-        train_indices_set = all_indices_set - self.test_indices_set
-        self.train_indices = list(train_indices_set)
+        train_indices_set = all_indices_set - test_indices_set
+        train_indices = list(train_indices_set)
+        # Only 50 train samples
+        train_sample_count = min(50, len(train_indices))
+        self.train_indices = random.sample(
+            train_indices,
+            train_sample_count,
+        )
 
-    def evaluate(self, solution: str) -> tuple[float, dict[str, Any]]:
+    def evaluate_set(
+        self,
+        solution: str,
+        chosen_indices: list[int],
+    ) -> tuple[float, dict[str, Any]]:
         """Evaluate LLM optimized solution."""
-        # Pass the native 'drop' task directly
-        chosen_indices = self.train_indices
         raw_results = lm_eval.simple_evaluate(
             model='hf',
             model_args=(
@@ -142,3 +152,10 @@ class PromptOptimization(Task):
 
         # NOTE(MS): this won't have meta-data
         return score, {}
+
+    def evaluate(self, solution: str) -> tuple[float, dict[str, Any], float]:
+        """Evaluate LLM optimized solution."""
+        # Pass the native 'drop' task directly
+        score, _ = self.evaluate_set(solution, self.train_indices)
+        val_score, _ = self.evaluate_set(solution, self.test_indices)
+        return score, {}, val_score
