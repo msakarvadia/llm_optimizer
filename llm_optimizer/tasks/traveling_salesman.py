@@ -152,7 +152,7 @@ def solve_tsp(
     num_points: int,
     num_decimals: int,
     starting_algorithm: str,
-) -> tuple[list[int], float]:
+) -> tuple[list[int], float, None]:
     """3 different tsp solving algos.
 
     # https://github.com/google-deepmind/opro/blob/main/opro/optimization/optimize_tsp.py#L187C3-L252C27 # noqa
@@ -235,4 +235,4 @@ def solve_tsp(
     min_dis = (
         np.round(min_dis, num_decimals) if num_decimals > 0 else int(min_dis)
     )
-    return gt_sol, min_dis
+    return gt_sol, min_dis, None
