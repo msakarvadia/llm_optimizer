@@ -312,12 +312,13 @@ if __name__ == '__main__':
             'seed': args.seed,
         },
         'function': {},
-        'cloudcast': {},
+        'cloudcast': {'seed': args.seed},
         'harmbench': {
             'api_key': args.inference_api_key,
             'base_url': args.inference_base_url,
             'model_name': args.inference_model_name,
             'eval_model_gpu_id': eval_model_gpu_id,
+            'seed': args.seed,
         },
         'kernelbench': {
             'level': args.level,
