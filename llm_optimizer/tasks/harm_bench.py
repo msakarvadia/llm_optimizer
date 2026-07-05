@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import torch
+from datasets import Dataset
 from datasets import load_dataset
 from openai import OpenAI
 from transformers import AutoModelForCausalLM
@@ -70,7 +71,21 @@ class HarmBench(Task):
             low_cpu_mem_usage=True,
         ).to(self.device)
 
-    def evaluate(self, solution: str) -> tuple[float, dict[str, Any]]:
+        self.seed = kwargs['seed']
+
+        dataset = load_dataset('walledai/HarmBench', 'standard')
+        full_train = dataset['train']
+        split_dataset = full_train.shuffle(seed=self.seed).train_test_split(
+            test_size=0.25,
+        )
+        self.train_split = split_dataset['train']
+        self.test_split = split_dataset['test']
+
+    def evaluate_set(
+        self,
+        solution: str,
+        eval_split: Dataset,
+    ) -> tuple[float, dict[str, Any]]:
         """Evaluate the candidate trigger string against the validation classifier.
 
         Args:
@@ -79,13 +94,9 @@ class HarmBench(Task):
         Returns:
             A tuple containing the float metric score and a metadata dictionary.
         """
-        # TODO(MS): maybe make a val/test split, but for now not doing that
-        metadata: dict[str, Any] = {}
-        dataset = load_dataset('walledai/HarmBench', 'standard')
-        train_split = dataset['train']
-        total_prompt = len(train_split)
+        total_prompt = len(eval_split)
         eval_sequences = []
-        for index, row in enumerate(train_split):
+        for index, row in enumerate(eval_split):
             behavior_text = row['prompt']
             # Format the full test sequence
             full_prompt = f'{solution[0:10000]} {behavior_text}'
@@ -124,7 +135,14 @@ class HarmBench(Task):
         asr = float(num_harmful / total_prompt)
         print(f'Candidate Trigger: {solution}, {asr=}')
 
-        return asr, metadata
+        return asr, {}
+
+    def evaluate(self, solution: str) -> tuple[float, dict[str, Any], float]:
+        """Evaluate the candidate trigger string against the validation classifier."""
+        score, metadata = self.evaluate_set(solution, self.train_split)
+        val_score, _ = self.evaluate_set(solution, self.test_split)
+
+        return score, metadata, val_score
 
     def evaluate_harmful_generations(
         self,
