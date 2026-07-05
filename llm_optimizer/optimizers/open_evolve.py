@@ -65,7 +65,7 @@ def evaluator(solution_path: str) -> dict[str, float]:
         return {'combined_score': 0.0}
     solution = match.group(1)
 
-    result, extra_info = current_task.evaluate(solution)
+    result, extra_info, validation_score = current_task.evaluate(solution)
     return {'combined_score': result} | extra_info
 
 

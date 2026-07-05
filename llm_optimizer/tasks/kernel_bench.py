@@ -118,7 +118,7 @@ class KernelBench(Task):
             ' ModelNew using load_inline inside a markdown code block.'
         )
 
-    def evaluate(self, solution: str) -> tuple[float, dict[str, Any]]:
+    def evaluate(self, solution: str) -> tuple[float, dict[str, Any], None]:
         """Evaluate LLM optimized solution."""
         print('SOLUTION vv  ' * 40)
         print(solution)
@@ -140,7 +140,7 @@ class KernelBench(Task):
                     ' a markdown python code block.'
                 ),
             }
-            return speedup, error_dict
+            return speedup, error_dict, None
         # print('EXTRACTED CODE ' * 40)
         with open('tmp_generated_kernel.py', 'w') as f:
             f.write(custom_kernel)
@@ -194,4 +194,4 @@ class KernelBench(Task):
 
         print(result)
 
-        return speedup, error_dict
+        return speedup, error_dict, None

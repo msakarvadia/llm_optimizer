@@ -30,7 +30,10 @@ class MaximizeFunction(Task):
         self.direction = direction
         self.seed_candidate = 'placeholder solution'
 
-    def evaluate(self, solution: float | str) -> tuple[float, dict[str, Any]]:
+    def evaluate(
+        self,
+        solution: float | str,
+    ) -> tuple[float, dict[str, Any], None]:
         """Evaluate LLM optimized solution."""
         try:
             x = float(solution)
@@ -47,4 +50,4 @@ class MaximizeFunction(Task):
             score = -math.inf
             error_dict = {'error': error}
 
-        return score, error_dict
+        return score, error_dict, None

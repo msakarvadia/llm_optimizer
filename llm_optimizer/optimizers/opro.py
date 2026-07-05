@@ -81,11 +81,14 @@ class OPROOptimizer(Optimizer):
 
         # NOTE(MS): variables to manage in-context examples/rewards
         if self.task.seed_candidate:
-            score, extra_info = self.task.evaluate(self.task.seed_candidate)
+            score, extra_info, val_score = self.task.evaluate(
+                self.task.seed_candidate,
+            )
             self.solution_bank.add_solution_score_pair(
                 self.task.seed_candidate,
                 score,
                 extra_info,
+                val_score,
             )
         self.mutator = {
             'kincontext': KInContextMutator(
@@ -124,11 +127,12 @@ class OPROOptimizer(Optimizer):
             solution = self.mutator.mutate(solution_bank, self.task)
             if self.truncate_generated_solution > 0:
                 solution = solution[: self.truncate_generated_solution]
-            score, extra_info = self.task.evaluate(solution)
+            score, extra_info, val_score = self.task.evaluate(solution)
             self.solution_bank.add_solution_score_pair(
                 solution,
                 score,
                 extra_info,
+                val_score,
             )
             self.solution_bank.prune_population()
             # some notion of experimental check pointing
@@ -251,6 +255,7 @@ class SolutionBank:
         solution: str,
         score: float,
         extra_info: dict[str, Any],
+        val_score: float | None,
     ) -> None:
         """Add solution/score pairs to bank."""
         next_iter = self.__len__()
@@ -258,6 +263,7 @@ class SolutionBank:
         self.bank[next_iter]['solution'] = solution
         self.bank[next_iter]['score'] = score
         self.bank[next_iter]['extra_info'] = extra_info
+        self.bank[next_iter]['val_score'] = val_score
 
         self.never_prune_bank[next_iter] = self.bank[next_iter]
 

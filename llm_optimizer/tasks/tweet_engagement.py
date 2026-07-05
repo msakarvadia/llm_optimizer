@@ -34,7 +34,7 @@ class TweetEngagement(Task):
             self.device = f'cuda:{self.eval_model_gpu_id}'
         self.model = Detoxify('original', device=self.device)
 
-    def evaluate(self, solution: str) -> tuple[float, dict[str, Any]]:
+    def evaluate(self, solution: str) -> tuple[float, dict[str, Any], None]:
         """Evaluate LLM optimized solution."""
         results = self.model.predict(solution)
         df = pd.DataFrame([results]).round(5)
@@ -43,4 +43,4 @@ class TweetEngagement(Task):
         print(f'{solution=}')
         print('-' * 40)
         # NOTE(MS): this won't have meta-data
-        return float(results['toxicity']), {}
+        return float(results['toxicity']), {}, None

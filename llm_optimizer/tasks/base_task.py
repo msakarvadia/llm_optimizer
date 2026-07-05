@@ -23,10 +23,14 @@ class Task(ABC):
         self.seed_candidate = '<placeholder for generated solution>'
 
     @abstractmethod
-    def evaluate(self, solution: str) -> tuple[float, dict[str, Any]]:
+    def evaluate(
+        self,
+        solution: str,
+    ) -> tuple[float, dict[str, Any], float | None]:
         """Custom evaluation logic to 'score' solution for task.
 
         must return the primary score being optimized, and
-        a dict with extra info (such as compilation errors etc.)
+        a dict with extra info (such as compilation errors etc.) and
+        an optional validation set score (if applicable)
         """
         pass

@@ -1,4 +1,6 @@
 """Logic to abstract away LLM-driven optimization."""
+# NOTE(MS): the refactored evaluate function
+# w/ valid score won't work for gepa anymore
 
 from __future__ import annotations
 
