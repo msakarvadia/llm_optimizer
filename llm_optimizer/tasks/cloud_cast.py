@@ -6,6 +6,7 @@ https://github.com/gepa-ai/gepa/tree/main/examples/adrs/cloudcast
 
 from __future__ import annotations
 
+import random
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +38,8 @@ class CloudCast(Task):
         self.task_description = f"""{OPTIMIZATION_OBJECTIVE}\n
         {OPTIMIZATION_BACKGROUND}"""
 
+        self.seed = kwargs['seed']
+        random.seed(self.seed)
         self.solution_description = 'broadcast routing algorithm'
         self.metric = metric
         self.direction = direction
@@ -56,19 +59,24 @@ class CloudCast(Task):
         )
         # TODO(MS): split dataset into train/val
         self.train_set = dataset
+        # only 5 datapoints, grab 1 for validation set
+        random_index = random.randrange(len(self.train_set))
+        self.test_set = [self.train_set.pop(random_index)]
         print(self.train_set)
+        print(self.test_set)
 
-    def evaluate(self, solution: str) -> tuple[float, dict[str, Any]]:
+    def evaluate_set(
+        self,
+        program_path: str,
+        eval_set: list[dict[str, Any]],
+    ) -> tuple[float, dict[str, Any]]:
         """Evaluate algorithm."""
-        # print(solution)
-        program_path = get_program_path(solution)
-
         score = 0.0
         cost = 0.0
         transfer_time = 0.0
-        example = self.train_set[0]
+        example = eval_set[0]
         details = {'placeholder': 0}
-        for example in self.train_set:
+        for example in eval_set:
             if not syntax_is_valid(program_path):
                 return FAILED_SCORE, syntax_failure_info(example)
 
@@ -89,6 +97,15 @@ class CloudCast(Task):
             example,
             details,
         )
+
+    def evaluate(self, solution: str) -> tuple[float, dict[str, Any], float]:
+        """Evaluate algorithm."""
+        # print(solution)
+        program_path = get_program_path(solution)
+        score, meta_data = self.evaluate_set(program_path, self.train_set)
+        val_score, _ = self.evaluate_set(program_path, self.test_set)
+
+        return score, meta_data, val_score
 
 
 INITIAL_PROGRAM = """import networkx as nx
