@@ -65,15 +65,16 @@ class CantBeLate(Task):
         self.train_set = dataset['train']
         self.val_set = dataset['val']
 
-    def evaluate(self, solution: str) -> tuple[float, dict[str, Any]]:
+    def evaluate_set(
+        self,
+        program_path: str,
+        eval_set: list[dict[str, Any]],
+    ) -> tuple[float, dict[str, Any]]:
         """Evaluate algorithm."""
-        program_path = get_program_path(solution)
-        print(f'{program_path=}')
-
         score = 0.0
         # inplace shuffle
-        self.rng.shuffle(self.train_set)
-        for example in self.train_set:
+        self.rng.shuffle(eval_set)
+        for example in eval_set:
             if not syntax_is_valid(program_path):
                 return FAILED_SCORE, syntax_failure_info(example)
 
@@ -94,6 +95,15 @@ class CantBeLate(Task):
             example,
             details,
         )
+
+    def evaluate(self, solution: str) -> tuple[float, dict[str, Any], float]:
+        """Evaluate algorithm."""
+        program_path = get_program_path(solution)
+        print(f'{program_path=}')
+        score, meta_data = self.evaluate_set(program_path, self.train_set)
+        val_score, _ = self.evaluate_set(program_path, self.val_set)
+
+        return score, meta_data, val_score
 
 
 OPTIMIZATION_OBJECTIVE = """Optimize a cloud scheduling strategy for the "Can't Be Late" problem.
