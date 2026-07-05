@@ -328,6 +328,7 @@ if __name__ == '__main__':
             'model_name': args.inference_model_name,
             'eval_model_gpu_id': eval_model_gpu_id,
             'benchmark': args.benchmark,
+            'seed': args.seed,
         },
     }
     tasks: dict[str, type[Task]] = {
