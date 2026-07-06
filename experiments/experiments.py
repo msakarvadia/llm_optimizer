@@ -147,14 +147,15 @@ print(json.dumps(free_resources, indent=4))
 
 print('\n--- Launching Experiments ---')
 
-# Define the experiments to run along with their resource requirements
-# experiments = [
-#    {'task_name': 'tweet', 'num_gpus': 1},
-#    {'task_name': 'prompt', 'num_gpus': 3},
-# ]
 
 experiments = get_args_for_roll_outs()
 print(f'{len(experiments)=}')
+
+# Define the experiments to run along with their resource requirements
+experiments = [
+    {'task_name': 'tweet', 'num_gpus': 1},
+    #    {'task_name': 'prompt', 'num_gpus': 3},
+]
 
 # Launch loop: Trigger all tasks asynchronously and gather their futures
 futures = []
