@@ -69,7 +69,7 @@ class HarmBench(Task):
             classifier_model_id,
             dtype=torch.bfloat16 if self.device == 'cuda' else torch.float16,
             low_cpu_mem_usage=True,
-        ).to(self.device)
+        ).to(self.device)  # type: ignore[arg-type]
 
         self.seed = kwargs['seed']
 
