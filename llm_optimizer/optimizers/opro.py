@@ -266,6 +266,7 @@ class SolutionBank:
         self.bank[next_iter]['val_score'] = val_score
 
         self.never_prune_bank[next_iter] = self.bank[next_iter]
+        self.never_prune_bank[next_iter]['active_population'] = list(self.bank)
 
     def get_solutions(
         self,
