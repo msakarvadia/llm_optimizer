@@ -146,13 +146,14 @@ print(json.dumps(free_resources, indent=4))
 
 print('\n--- Launching Experiments ---')
 
-# Define the experiments to run along with their resource requirements
-# experiments = [
-#    {'task_name': 'tweet', 'num_gpus': 1},
-#    {'task_name': 'prompt', 'num_gpus': 3},
-# ]
 
 experiments = get_args_for_roll_outs()
+
+# Define the experiments to run along with their resource requirements
+experiments = [
+    {'task_name': 'tweet', 'num_gpus': 1},
+    #    {'task_name': 'prompt', 'num_gpus': 3},
+]
 
 # Launch loop: Trigger all tasks asynchronously and gather their futures
 futures = []
@@ -168,5 +169,9 @@ print('\n--- Worker Return Results ---')
 
 # Wait loop: Iterate through the futures list and block on them one by one
 for obj_ref in futures:
-    res = ray.get(obj_ref)
-    print(res)
+    try:
+        res = ray.get(obj_ref)
+        print(res)
+    except Exception as e:
+        # Handle the error (e.g., log it, record the failed experiment)
+        print(f'Experiment failed with error: {e}')
