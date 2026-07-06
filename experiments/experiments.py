@@ -168,5 +168,10 @@ print('\n--- Worker Return Results ---')
 
 # Wait loop: Iterate through the futures list and block on them one by one
 for obj_ref in futures:
-    res = ray.get(obj_ref)
-    print(res)
+    try:
+        res = ray.get(obj_ref)
+        print(res)
+    except Exception as e:
+        # Prevent the script from crashing; log the specific failure
+        # and move to the next task
+        print(f'Experiment failed with error: {e}')
