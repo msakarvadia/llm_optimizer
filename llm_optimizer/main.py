@@ -178,7 +178,7 @@ if __name__ == '__main__':
         for example, on harmbench, this model is queried w/ adversarial
         prefixes
 
-        relevant to tasks: harmbench, ...
+        relevant to tasks: harmbench, prompt
         """,
     )
 
