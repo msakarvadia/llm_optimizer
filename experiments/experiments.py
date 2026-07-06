@@ -74,6 +74,7 @@ def run_experiment(
     ]
 
     args_dict.pop('num_gpus', None)
+    args_dict.pop('num_cpus', None)
     # Dynamically unpack all dictionary keys
     # and values into CLI argument strings
     for key, val in args_dict.items():
@@ -153,11 +154,15 @@ print('\n--- Launching Experiments ---')
 # ]
 
 experiments = get_args_for_roll_outs()
+print(f'{len(experiments)=}')
 
 # Launch loop: Trigger all tasks asynchronously and gather their futures
 futures = []
 for exp in experiments:
-    obj_ref = run_experiment.options(num_gpus=exp['num_gpus']).remote(
+    obj_ref = run_experiment.options(
+        num_gpus=exp['num_gpus'],
+        num_cpus=exp['num_cpus'],
+    ).remote(
         prebuilt_python_exe,
         project_root,
         exp,
