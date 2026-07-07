@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import itertools
+import os
 from typing import Any
 
 
@@ -94,5 +95,68 @@ def get_args_for_roll_outs() -> list[dict[str, Any]]:
                     }
 
                     experiments_to_run.append(config)
+
+    return experiments_to_run
+
+
+def get_args_for_pop_dynamics() -> list[dict[str, Any]]:
+    """Experiments to understand population dynamics."""
+    num_iter = 50
+    task = 'tweet'
+    pruning_strategy = 'lowest_scoring'
+    max_population_sizes = [10, 15]
+    sampling_strategy = 'wheel'
+    mutators = ['kincontext', 'DE', 'GA', 'GEPA']
+    noise = 0
+    sampling_prob = 0.5
+    n = 3
+
+    optimizer_llms = [
+        'gemini-3.5-flash',
+        'gemini-2.25-flash',
+        'gpt-oss-120b',
+    ]
+
+    population_dir = (
+        '/scratch/mansisak/llm_optimizer/curated_initial_populations'
+    )
+    init_population_files = sorted(
+        [
+            os.path.join(population_dir, f)
+            for f in os.listdir(population_dir)
+            if f.endswith('.json')
+        ],
+    )
+
+    experiments_to_run = []
+
+    for pop_size, mutator, llm, pop_path in itertools.product(
+        max_population_sizes,
+        mutators,
+        optimizer_llms,
+        init_population_files,
+    ):
+        benchmark = 'drop'
+        num_cpus = 8
+        num_gpus = 1
+
+        config = {
+            'optimizer_name': 'opro',
+            'optimizer_llm': llm,
+            'task_name': task,
+            'pruning_strategy': pruning_strategy,
+            'max_population_size': pop_size,
+            'sampling_strategy_name': sampling_strategy,
+            'mutator': mutator,
+            'noise': noise,
+            'num_iter': num_iter,
+            'num_gpus': num_gpus,
+            'num_cpus': num_cpus,
+            'benchmark': benchmark,
+            'sampling_prob': sampling_prob,
+            'n': n,
+            'init_population_path': pop_path,
+        }
+        experiments_to_run.append(config)
 
     return experiments_to_run

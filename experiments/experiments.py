@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import pathlib
@@ -10,6 +11,7 @@ import sys
 from typing import Any
 
 import ray
+from generate_experiment_args import get_args_for_pop_dynamics
 from generate_experiment_args import get_args_for_roll_outs
 
 script_dir = pathlib.Path(__file__).parent.resolve()
@@ -34,22 +36,6 @@ runtime_env = {
         'VIRTUAL_ENV': '',
     },
 }
-
-
-if not ray.is_initialized():
-    try:
-        # Ray automatically reads the RAY_ADDRESS="auto" environment variable
-        ray.init(runtime_env=runtime_env)
-        print('Connected to multi-node Ray Cluster successfully.')
-    except Exception as e:
-        print(
-            f'Failed to connect to cluster: {e}.',
-            'Falling back to fresh local instance.',
-        )
-        # Clear env variable explicitly to ensure local fallback succeeds
-        if 'RAY_ADDRESS' in os.environ:
-            del os.environ['RAY_ADDRESS']
-        ray.init(runtime_env=runtime_env)
 
 
 @ray.remote
@@ -100,84 +86,85 @@ def run_experiment(
             'ERROR: main.py crashed on config ',
             '{args_dict} with exit code {e.returncode}',
         )
+        print(f'Command executed: {e.cmd}')
+        print(f'Stderr error trace:\n{e.stderr}')
+        print(f'Exit code: {e.returncode}')
+        print(f'Stdout logs:\n{e.stdout}')
         raise e
 
 
-# @ray.remote
-# def run_experiment(python_path: str, task_name: str, true_root: str) -> str:
-#    """Print out allocated GPU ids for this specific task worker."""
-#    # Command array updated exactly to: uv run python main.py
-#    worker_project_root = os.getcwd()
-#    print(f'{worker_project_root=}')
-#    absolute_main_path = os.path.join(true_root, 'llm_optimizer/main.py')
-#    print(f'{absolute_main_path=}')
-#    cmd = [
-#        python_path,
-#        absolute_main_path,
-#        #'llm_optimizer/main.py',
-#        '--num_iter',
-#        '5',
-#        '--task_name',
-#        task_name,
-#    ]
-#
-#    print(f'Executing: {" ".join(cmd)}')
-#    try:
-#        result = subprocess.run(
-#            cmd,
-#            cwd=true_root,
-#            capture_output=False,
-#            check=True,
-#       )
-#        print(result)
-#        return 'Task Completed Successfully'
-#
-#    except subprocess.CalledProcessError as e:
-#        print(f'ERROR: main.py crashed with exit code {e.returncode}')
-#        raise e
-
-
-total_resources = ray.cluster_resources()
-print('--- Total Cluster Resources ---')
-print(json.dumps(total_resources, indent=4))
-
-free_resources = ray.available_resources()
-print('\n--- Available (Free) Resources ---')
-print(json.dumps(free_resources, indent=4))
-
-print('\n--- Launching Experiments ---')
-
-
-experiments = get_args_for_roll_outs()
-print(f'{len(experiments)=}')
-
-# Define the experiments to run along with their resource requirements
-# experiments = [
-#    {'task_name': 'tweet', 'num_gpus': 1},
-#    #    {'task_name': 'prompt', 'num_gpus': 3},
-# ]
-
-# Launch loop: Trigger all tasks asynchronously and gather their futures
-futures = []
-for exp in experiments:
-    obj_ref = run_experiment.options(
-        num_gpus=exp['num_gpus'],
-        num_cpus=exp['num_cpus'],
-    ).remote(
-        prebuilt_python_exe,
-        project_root,
-        exp,
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--experiment_name',
+        type=str,
+        default='general_rollout',
+        choices=[
+            'general_rollout',
+            'population_dynamics',
+        ],
+        help='Name of experiment.',
     )
-    futures.append(obj_ref)
+    args = parser.parse_args()
 
-print('\n--- Worker Return Results ---')
+    if not ray.is_initialized():
+        try:
+            # Ray automatically reads the RAY_ADDRESS="auto"
+            ray.init(runtime_env=runtime_env)
+            print('Connected to multi-node Ray Cluster successfully.')
+        except Exception as e:
+            print(
+                f'Failed to connect to cluster: {e}.',
+                'Falling back to fresh local instance.',
+            )
+            # Clear env variable explicitly to ensure local fallback succeeds
+            if 'RAY_ADDRESS' in os.environ:
+                del os.environ['RAY_ADDRESS']
+            ray.init(runtime_env=runtime_env)
 
-# Wait loop: Iterate through the futures list and block on them one by one
-for obj_ref in futures:
-    try:
-        res = ray.get(obj_ref)
-        print(res)
-    except Exception as e:
-        # Prevent the script from crashing; log the specific failure
-        # and move to the next task
-        print(f'Experiment failed with error: {e}')
+    total_resources = ray.cluster_resources()
+    print('--- Total Cluster Resources ---')
+    print(json.dumps(total_resources, indent=4))
+
+    free_resources = ray.available_resources()
+    print('\n--- Available (Free) Resources ---')
+    print(json.dumps(free_resources, indent=4))
+
+    print('\n--- Launching Experiments ---')
+
+    if args.experiment_name == 'general_rollout':
+        experiments = get_args_for_roll_outs()
+    if args.experiment_name == 'population_dynamics':
+        experiments = get_args_for_pop_dynamics()
+    print(f'{len(experiments)=}')
+
+    # Define the experiments to run along with their resource requirements
+    # experiments = [
+    #    {'task_name': 'tweet', 'num_gpus': 1},
+    #    #    {'task_name': 'prompt', 'num_gpus': 3},
+    # ]
+
+    # Launch loop: Trigger all tasks asynchronously and gather their futures
+    futures = []
+    for exp in experiments:
+        obj_ref = run_experiment.options(
+            num_gpus=exp['num_gpus'],
+            num_cpus=exp['num_cpus'],
+        ).remote(
+            prebuilt_python_exe,
+            project_root,
+            exp,
+        )
+        futures.append(obj_ref)
+
+    print('\n--- Worker Return Results ---')
+
+    # Wait loop: Iterate through the futures list and block on them one by one
+    for obj_ref in futures:
+        try:
+            res = ray.get(obj_ref)
+            print(res)
+        except Exception as e:
+            # Prevent the script from crashing; log the specific failure
+            # and move to the next task
+            print(f'Experiment failed with error: {e}')
