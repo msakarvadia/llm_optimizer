@@ -202,7 +202,7 @@ class SolutionBank:
                 ' is not JSON serializable',
             )
 
-        print(self.bank)
+        # print(self.bank)
         full_path = os.path.join(path, 'long_running_solution_bank.json')
         with open(full_path, 'w', encoding='utf-8') as json_file:
             json.dump(
@@ -258,7 +258,8 @@ class SolutionBank:
         val_score: float | None,
     ) -> None:
         """Add solution/score pairs to bank."""
-        next_iter = self.__len__()
+        next_iter = max(self.never_prune_bank) + 1
+
         self.bank[next_iter] = {}
         self.bank[next_iter]['solution'] = solution
         self.bank[next_iter]['score'] = score
@@ -396,6 +397,7 @@ class SolutionBank:
             sampled_items = [ranked_population[idx] for idx in chosen_indices]
             # NOTE(MS): these samples are not strictly ordered
         if sampling_strategy_name == 'wheel':
+            print(f'POPULATION SIZE: {len(population)=}')
             # https://arxiv.org/abs/1109.3627
 
             # Extract scores (index 1 of the tuple)
@@ -425,4 +427,4 @@ class SolutionBank:
 
     def __len__(self) -> int:
         """Total # of past solutions generated."""
-        return len(self.never_prune_bank)
+        return len(self.bank)
