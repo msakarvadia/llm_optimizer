@@ -117,7 +117,7 @@ class OPROOptimizer(Optimizer):
         """Optimization loop for task."""
         # TODO(MS): impl convergence criteria
 
-        while len(self.solution_bank) <= num_iter:
+        while self.solution_bank.get_num_total_iterations() <= num_iter:
             solution_bank = self.solution_bank.get_solutions(
                 n=self.n,
                 sampling_strategy_name=self.sampling_strategy_name,
@@ -258,7 +258,7 @@ class SolutionBank:
         val_score: float | None,
     ) -> None:
         """Add solution/score pairs to bank."""
-        next_iter = max(self.never_prune_bank) + 1
+        next_iter = max(self.never_prune_bank, default=0) + 1
 
         self.bank[next_iter] = {}
         self.bank[next_iter]['solution'] = solution
@@ -426,5 +426,9 @@ class SolutionBank:
         return sampled_items
 
     def __len__(self) -> int:
-        """Total # of past solutions generated."""
+        """Total # of current solutions in active pop."""
         return len(self.bank)
+
+    def get_num_total_iterations(self) -> int:
+        """Total # of past solutions generated."""
+        return len(self.never_prune_bank)
