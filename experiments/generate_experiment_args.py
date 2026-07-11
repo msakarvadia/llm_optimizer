@@ -12,12 +12,12 @@ def get_args_for_roll_outs() -> list[dict[str, Any]]:
     # --- Define Hyperparameter Parameter Search Space
     num_iter = 50
     tasks = [
-        'tweet',
-        'kernelbench',
         'harmbench',
         'prompt',
-        'cloudcast',
         'cantbelate',
+        'cloudcast',
+        'kernelbench',
+        #'tweet',
     ]
     pruning_strategies = ['lowest_scoring']  # 'oldest'
     max_population_sizes = [5, 10, 20, 50]
