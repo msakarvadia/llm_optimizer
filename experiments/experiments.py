@@ -16,13 +16,15 @@ from generate_experiment_args import get_args_for_roll_outs
 
 script_dir = pathlib.Path(__file__).parent.resolve()
 project_root = str(script_dir.parent)
-print(f'Targeting Shared Project Directory: {project_root}')
+print(f'Targeting Shared Project Directory: {project_root=}')
 # Extract the exact path to your existing prebuilt .venv Python interpreter
 # E.g., "<path_to>/llm_optimizer/.venv/bin/python"
 prebuilt_python_exe = os.path.abspath(sys.executable)
+print(f'{prebuilt_python_exe=}')
 
 runtime_env = {
-    'working_dir': project_root,
+    #'working_dir': project_root,
+    'py_executable': prebuilt_python_exe,
     'excludes': [
         'pyproject.toml',
         'uv.lock',
@@ -33,14 +35,15 @@ runtime_env = {
     'env_vars': {
         # Ray to bypass internal uv environment generation hook entirely
         'RAY_ENABLE_UV_RUN_RUNTIME_ENV': '0',
-        'VIRTUAL_ENV': '',
+        'VIRTUAL_ENV': '/scratch/mansisak/llm_optimizer/.venv',
+        'PYTHONPATH': project_root,
     },
 }
 
 
 @ray.remote
 def run_experiment(
-    python_path: str,
+    # python_path: str,
     true_root: str,
     args_dict: dict[str, Any],
 ) -> str:
@@ -48,6 +51,7 @@ def run_experiment(
 
     Runs experiments.
     """
+    python_path = sys.executable
     worker_project_root = os.getcwd()
     print(f'{worker_project_root=}')
     absolute_main_path = os.path.join(true_root, 'llm_optimizer/main.py')
@@ -151,7 +155,7 @@ if __name__ == '__main__':
             num_gpus=exp['num_gpus'],
             num_cpus=exp['num_cpus'],
         ).remote(
-            prebuilt_python_exe,
+            # prebuilt_python_exe,
             project_root,
             exp,
         )

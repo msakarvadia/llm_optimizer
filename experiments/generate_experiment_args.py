@@ -113,7 +113,7 @@ def get_args_for_pop_dynamics() -> list[dict[str, Any]]:
 
     optimizer_llms = [
         'gemini-3.5-flash',
-        'gemini-2.25-flash',
+        'gemini-2.5-flash',
         'openai/gpt-oss-120b',
     ]
 
