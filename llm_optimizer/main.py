@@ -40,6 +40,7 @@ if __name__ == '__main__':
         default='gemini-3.5-flash',
         choices=[
             'gemini-3.5-flash',
+            'gemini-2.5-flash',
             'openai/gpt-oss-120b',
             'meta-llama/Llama-3.1-8B-Instruct',
             'mlabonne/NeuralDaredevil-8B-abliterated',
@@ -169,6 +170,7 @@ if __name__ == '__main__':
         default='google/gemma-4-E4B-it',
         choices=[
             'gemini-3.5-flash',
+            'gemini-2.5-flash',
             'openai/gpt-oss-120b',
             'meta-llama/Llama-3.1-8B-Instruct',
             'mlabonne/NeuralDaredevil-8B-abliterated',
