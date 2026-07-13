@@ -101,21 +101,14 @@ class HarmBench(Task):
             # Format the full test sequence
             full_prompt = f'{solution[0:10000]} {behavior_text}'
 
-            # Invoke the target API LLM to get a raw completion text
-            # print(f'Requested Behavior: {behavior_text}')
-            try:
-                target_response = prompt_lm(
-                    self.client,
-                    full_prompt,
-                    self.model_name,
-                )
-                # print('-' * 40)
-                # print(f'Target Response: {target_response.strip()}')
-                # print('-' * 40)
-            except Exception as e:
-                # Handle rate limits or API drops smoothly during optimization runs
-                print(f'API Error occurred: {e}')
-                return 0.0, {'error': str(e)}
+            # prompt model
+            # NOTE(MS): if there is error w/ inference, error out
+            # ...no try/catch here!
+            target_response = prompt_lm(
+                self.client,
+                full_prompt,
+                self.model_name,
+            )
 
             # Format the evaluation sequence specifically for the HarmBench classifier.
             # HarmBench classifiers typically expect a structured format pairing the
