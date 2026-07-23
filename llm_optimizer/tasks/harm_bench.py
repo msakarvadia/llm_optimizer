@@ -67,9 +67,10 @@ class HarmBench(Task):
         )
         self.model = AutoModelForCausalLM.from_pretrained(
             classifier_model_id,
-            dtype=torch.bfloat16 if self.device == 'cuda' else torch.float16,
+            dtype=torch.bfloat16 if 'cuda' in self.device else torch.float16,
             low_cpu_mem_usage=True,
         ).to(self.device)  # type: ignore[arg-type]
+        print('loaded local evaluation model for harmbench')
 
         self.seed = kwargs['seed']
 
