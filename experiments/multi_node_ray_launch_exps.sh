@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --nodes=2                  # Request exactly 2 physical nodes
+#SBATCH --nodes=1                  # Request exactly 2 physical nodes
 #SBATCH --ntasks-per-node=1        # Required for stable Ray setup (1 main driver per node)
-#SBATCH --gres=gpu:4             # Request 4 GPUs per node (8 total across the job)
+#SBATCH --gres=gpu:2             # Request 4 GPUs per node (8 total across the job)
 #SBATCH --cpus-per-task=64         # Proportional scaling: 16 CPUs per GPU * 4 GPUs = 12 CPUs
 #SBATCH --mem=256000M              # Proportional memory: 32000M per GPU * 4 GPUs = 128000M (Cedar layout)
 #SBATCH --time=0-01:00:00             # 12 hours walltime constraint (DD-HH:MM)
@@ -58,7 +58,7 @@ echo "Submitting Ray application..."
 # FIX: Change 'ray://' to 'auto' so Ray targets the GCS port (6379) directly
 export RAY_ADDRESS="auto"
 source /scratch/mansisak/llm_optimizer/.venv/bin/activate
-python /scratch/mansisak/llm_optimizer/experiments/experiments.py --experiment_name $EXP_NAME
+python -u /scratch/mansisak/llm_optimizer/experiments/experiments.py --experiment_name $EXP_NAME
 
 # Clean up the cluster when done normally
 echo "Application finished. Stopping Ray cluster..."

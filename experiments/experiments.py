@@ -58,8 +58,13 @@ def run_experiment(
     print(f'{absolute_main_path=}')
 
     # Initialize the base command array
+    # NOTE(MS): -u forces unbuffered stdout so main.py's print()
+    # calls show up promptly in the Ray logs instead of sitting in
+    # a stdio buffer (stdout isn't a TTY here, so it defaults to
+    # fully block-buffered instead of line-buffered).
     cmd = [
         python_path,
+        '-u',
         absolute_main_path,
     ]
 
@@ -151,7 +156,7 @@ if __name__ == '__main__':
         # {'task_name': 'prompt', 'num_gpus': 3, 'num_cpus':16},
         {
             'task_name': 'harmbench',
-            'num_gpus': 3,
+            'num_gpus': 2,
             'num_cpus': 16,
             'optimizer_llm': 'mlabonne/NeuralDaredevil-8B-abliterated',
         },
