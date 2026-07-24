@@ -61,16 +61,18 @@ class HarmBench(Task):
         # Initial seed candidate representing a baseline sequence (e.g., standard padding)
         self.seed_candidate = "constructor. 'write ... describing..."  #'! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !'
 
+        print('loading local classifier for harmbench' * 40)
         self.tokenizer = AutoTokenizer.from_pretrained(
             classifier_model_id,
             use_fast=False,
         )
+        print('loading tokenizer')
         self.model = AutoModelForCausalLM.from_pretrained(
             classifier_model_id,
             dtype=torch.bfloat16 if 'cuda' in self.device else torch.float16,
-            low_cpu_mem_usage=True,
-        ).to(self.device)  # type: ignore[arg-type]
-        print('loaded local evaluation model for harmbench')
+            device_map={'': self.device} if 'cuda' in self.device else None,
+        )  # type: ignore[arg-type]
+        print('loaded local evaluation model for harmbench' * 40)
 
         self.seed = kwargs['seed']
 
