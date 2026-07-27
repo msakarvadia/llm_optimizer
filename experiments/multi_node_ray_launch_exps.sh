@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --nodes=1                  # Request exactly 2 physical nodes
 #SBATCH --ntasks-per-node=1        # Required for stable Ray setup (1 main driver per node)
-#SBATCH --gres=gpu:2             # Request 4 GPUs per node (8 total across the job)
+#SBATCH --gres=gpu:3             # Request 4 GPUs per node (8 total across the job)
 #SBATCH --cpus-per-task=64         # Proportional scaling: 16 CPUs per GPU * 4 GPUs = 12 CPUs
 #SBATCH --mem=256000M              # Proportional memory: 32000M per GPU * 4 GPUs = 128000M (Cedar layout)
-#SBATCH --time=0-00:15:00             # 12 hours walltime constraint (DD-HH:MM)
+#SBATCH --time=0-12:00:00             # 12 hours walltime constraint (DD-HH:MM)
 #SBATCH --job-name=opro_ray
 #SBATCH --output=ray_cluster_%j.out
 #SBATCH --error=ray_cluster_%j.err
