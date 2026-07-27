@@ -62,7 +62,7 @@ def prompt_lm(
     model_name: str = 'gemini-3.5-flash',
 ) -> str:
     """Standard LLM api inference call."""
-    print('doing llm inference call')
+    # print('doing llm inference call')
     response = client.chat.completions.create(
         model=model_name,
         messages=[
