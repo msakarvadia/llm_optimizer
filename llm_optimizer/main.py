@@ -146,6 +146,14 @@ if __name__ == '__main__':
         experimental directory to kick off optimization
         """,
     )
+    parser.add_argument(
+        '--experiment_dir',
+        type=str,
+        default='temp_results_dir/',
+        help="""Name of high-leve directory in which to save experiment
+        specific results directory
+        """,
+    )
 
     # task args
     parser.add_argument(
@@ -231,11 +239,12 @@ if __name__ == '__main__':
     args = parser.parse_args()
     args_dict = vars(args).copy()
     args_dict.pop('num_iter', None)
+    args_dict.pop('experiment_dir', None)
     clean_values = [
         str(val).replace('.', '').replace('/', '')
         for val in args_dict.values()
     ]
-    experiment_dir = '_'.join(clean_values)
+    experiment_dir = f'{args.experiment_dir}/' + '_'.join(clean_values)
 
     # TODO(MS): wrap below logic into a run_experiment function
     # we need to dynamically count how many GPUs each experiment needs

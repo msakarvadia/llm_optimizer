@@ -45,7 +45,7 @@ class OPROOptimizer(Optimizer):
         """Init optimizer."""
         # Capture arguments and flatten kwargs
         # build experiment path
-        self.experiment_dir = f'temp_results_dir/{kwargs["experiment_dir"]}/'
+        self.experiment_dir = f'{kwargs["experiment_dir"]}/'
         print(f'{self.experiment_dir=}')
         os.makedirs(self.experiment_dir, exist_ok=True)
         self.init_population_path = kwargs['init_population_path']
