@@ -165,6 +165,9 @@ if __name__ == '__main__':
     # Launch loop: Trigger all tasks asynchronously and gather their futures
     futures = []
     for exp in experiments:
+        # add experiment_name as the meta_dir
+        # to store the experiments in
+        exp['experiment_dir'] = args.experiment_name
         obj_ref = run_experiment.options(
             num_gpus=exp['num_gpus'],
             num_cpus=exp['num_cpus'],
