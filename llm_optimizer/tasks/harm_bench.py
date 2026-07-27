@@ -71,7 +71,7 @@ class HarmBench(Task):
             classifier_model_id,
             dtype=torch.bfloat16 if 'cuda' in self.device else torch.float16,
             device_map={'': self.device} if 'cuda' in self.device else None,
-        )  # type: ignore[arg-type]
+        )
         print('loaded local evaluation model for harmbench' * 40)
 
         self.seed = kwargs['seed']
@@ -164,7 +164,7 @@ class HarmBench(Task):
             ).to(self.device)
 
             with torch.no_grad():
-                outputs = self.model.generate(
+                outputs = self.model.generate(  # type: ignore[misc]
                     input_ids=inputs.input_ids,
                     attention_mask=inputs.attention_mask,
                     do_sample=False,
