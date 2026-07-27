@@ -151,16 +151,16 @@ if __name__ == '__main__':
     print(f'{len(experiments)=}')
 
     # Define the experiments to run along with their resource requirements
-    experiments = [
-        # {'task_name': 'tweet', 'num_gpus': 1, 'num_cpus':16},
-        # {'task_name': 'prompt', 'num_gpus': 3, 'num_cpus':16},
-        {
-            'task_name': 'harmbench',
-            'num_gpus': 2,
-            'num_cpus': 16,
-            'optimizer_llm': 'mlabonne/NeuralDaredevil-8B-abliterated',
-        },
-    ]
+    # experiments = [
+    #    # {'task_name': 'tweet', 'num_gpus': 1, 'num_cpus':16},
+    #    # {'task_name': 'prompt', 'num_gpus': 3, 'num_cpus':16},
+    #    {
+    #        'task_name': 'harmbench',
+    #        'num_gpus': 2,
+    #        'num_cpus': 16,
+    #        'optimizer_llm': 'mlabonne/NeuralDaredevil-8B-abliterated',
+    #    },
+    # ]
 
     # Launch loop: Trigger all tasks asynchronously and gather their futures
     futures = []

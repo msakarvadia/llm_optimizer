@@ -66,12 +66,12 @@ def get_args_for_roll_outs() -> list[dict[str, Any]]:
         num_cpus = 8
         if task in ['cloudcast', 'cantbelate']:
             num_gpus = 0
-        if task in ['prompt']:
+        if task in ['prompt', 'kernelbench']:
             num_gpus = 1
         if task in ['tweet']:
             num_gpus = 1
-        if task in ['kernelbench', 'harmbench']:
-            num_gpus = 3
+        if task in ['harmbench']:
+            num_gpus = 2
 
         for benchmark in benchmarks:
             for prob in sampling_probs:
