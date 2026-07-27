@@ -4,7 +4,7 @@
 #SBATCH --gres=gpu:2             # Request 4 GPUs per node (8 total across the job)
 #SBATCH --cpus-per-task=64         # Proportional scaling: 16 CPUs per GPU * 4 GPUs = 12 CPUs
 #SBATCH --mem=256000M              # Proportional memory: 32000M per GPU * 4 GPUs = 128000M (Cedar layout)
-#SBATCH --time=0-01:00:00             # 12 hours walltime constraint (DD-HH:MM)
+#SBATCH --time=0-00:15:00             # 12 hours walltime constraint (DD-HH:MM)
 #SBATCH --job-name=opro_ray
 #SBATCH --output=ray_cluster_%j.out
 #SBATCH --error=ray_cluster_%j.err
@@ -35,6 +35,7 @@ echo "Head node IP: $ip_head"
 # Use --exact and --overlap so background srun steps don't starve each other
 echo "Starting Ray HEAD on $head_node"
 srun --nodes=1 --ntasks=1 -w "$head_node" --exact --overlap \
+    --cpus-per-task="$SLURM_CPUS_ON_NODE" --mem="$SLURM_MEM_PER_NODE" --gres="gpu:$SLURM_GPUS_ON_NODE" \
     uv run ray start --head --node-ip-address="$head_node_ip" --port=$port --block &
 sleep 15
 
@@ -45,6 +46,7 @@ for ((i = 1; i < SLURM_JOB_NUM_NODES; i++)); do
     node_i=${nodes_array[$i]}
     echo "Starting worker on $node_i"
     srun --nodes=1 --ntasks=1 -w "$node_i" --exact --overlap \
+        --cpus-per-task="$SLURM_CPUS_ON_NODE" --mem="$SLURM_MEM_PER_NODE" --gres="gpu:$SLURM_GPUS_ON_NODE" \
         uv run ray start --address="$ip_head" --block &
 done
 sleep 15
