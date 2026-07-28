@@ -375,7 +375,7 @@ class SolutionBank:
             # sort population from high to low score
             ranked_population = sorted(
                 population,
-                key=lambda x: x,
+                key=lambda x: x[1],
                 reverse=True,
             )
 
