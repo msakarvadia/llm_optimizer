@@ -7,6 +7,9 @@ mlabonne/NeuralDaredevil-8B-abliterated:
 gemini-3.5-flash:
   key_env_name: "GEMINI_API_KEY"
   base_url: 'https://generativelanguage.googleapis.com/v1beta/openai/'
+gemini-3.1-pro-preview:
+  key_env_name: "GEMINI_API_KEY"
+  base_url: 'https://generativelanguage.googleapis.com/v1beta/openai/'
 gemini-2.5-flash:
   key_env_name: "GEMINI_API_KEY"
   base_url: 'https://generativelanguage.googleapis.com/v1beta/openai/'
