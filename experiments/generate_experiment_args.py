@@ -43,9 +43,6 @@ def get_args_for_roll_outs() -> list[dict[str, Any]]:
         mutators,
         noises,
     ):
-        # Handle Tournament Sampling Dependency
-        sampling_probs = [0.5, 0.9] if strategy == 'tournament' else [0.5]
-
         # Handle Kincontext Mutator Dependency
         n_values = [3, 20, 50] if mutator == 'kincontext' else [5]
         # make sure context lengths don't exceed pop_size
@@ -74,27 +71,25 @@ def get_args_for_roll_outs() -> list[dict[str, Any]]:
             num_gpus = 2
 
         for benchmark in benchmarks:
-            for prob in sampling_probs:
-                for n in n_values:
-                    # Build your clean parameter dict
-                    config = {
-                        'optimizer_name': 'opro',
-                        'optimizer_llm': optimizer_llm,
-                        'task_name': task,
-                        'pruning_strategy': pruning,
-                        'max_population_size': pop_size,
-                        'sampling_strategy_name': strategy,
-                        'mutator': mutator,
-                        'noise': noise,
-                        'num_iter': num_iter,
-                        'num_gpus': num_gpus,
-                        'num_cpus': num_cpus,
-                        'benchmark': benchmark,
-                        'sampling_prob': prob,
-                        'n': n,
-                    }
+            for n in n_values:
+                # Build your clean parameter dict
+                config = {
+                    'optimizer_name': 'opro',
+                    'optimizer_llm': optimizer_llm,
+                    'task_name': task,
+                    'pruning_strategy': pruning,
+                    'max_population_size': pop_size,
+                    'sampling_strategy_name': strategy,
+                    'mutator': mutator,
+                    'noise': noise,
+                    'num_iter': num_iter,
+                    'num_gpus': num_gpus,
+                    'num_cpus': num_cpus,
+                    'benchmark': benchmark,
+                    'n': n,
+                }
 
-                    experiments_to_run.append(config)
+                experiments_to_run.append(config)
 
     return experiments_to_run
 
@@ -102,18 +97,21 @@ def get_args_for_roll_outs() -> list[dict[str, Any]]:
 def get_args_for_long_run_cloud() -> list[dict[str, Any]]:
     """Generic roll outs experiment."""
     # --- Define Hyperparameter Parameter Search Space
-    num_iter = 30000
+    num_iter_by_task = {
+        'cantbelate': 5000,
+        'cloudcast': 1500,
+    }
     tasks = [
         'cantbelate',
         'cloudcast',
     ]
     pruning_strategies = ['lowest_scoring']  # 'oldest'
-    max_population_sizes = [5, 10, 20, 50]
+    max_population_sizes = [20, 50]
     sampling_strategies = [
         'highest_scoring',
         'tournament',
         'wheel',
-        'most_recent',
+        #'most_recent',
     ]
     mutators = ['kincontext', 'DE', 'GA', 'GEPA']
     noises = [0]
@@ -130,11 +128,8 @@ def get_args_for_long_run_cloud() -> list[dict[str, Any]]:
         mutators,
         noises,
     ):
-        # Handle Tournament Sampling Dependency
-        sampling_probs = [0.5, 0.9] if strategy == 'tournament' else [0.5]
-
         # Handle Kincontext Mutator Dependency
-        n_values = [3, 20, 50] if mutator == 'kincontext' else [5]
+        n_values = [3] if mutator == 'kincontext' else [5]
         # make sure context lengths don't exceed pop_size
         if len(n_values) > 1:
             n_values = [val for val in n_values if val <= pop_size]
@@ -143,29 +138,27 @@ def get_args_for_long_run_cloud() -> list[dict[str, Any]]:
         optimizer_llm = 'gemini-3.1-pro-preview'
 
         # Num GPUs
-        num_cpus = 8
+        num_cpus = 4
         num_gpus = 0
 
-        for prob in sampling_probs:
-            for n in n_values:
-                # Build your clean parameter dict
-                config = {
-                    'optimizer_name': 'opro',
-                    'optimizer_llm': optimizer_llm,
-                    'task_name': task,
-                    'pruning_strategy': pruning,
-                    'max_population_size': pop_size,
-                    'sampling_strategy_name': strategy,
-                    'mutator': mutator,
-                    'noise': noise,
-                    'num_iter': num_iter,
-                    'num_gpus': num_gpus,
-                    'num_cpus': num_cpus,
-                    'sampling_prob': prob,
-                    'n': n,
-                }
+        for n in n_values:
+            # Build your clean parameter dict
+            config = {
+                'optimizer_name': 'opro',
+                'optimizer_llm': optimizer_llm,
+                'task_name': task,
+                'pruning_strategy': pruning,
+                'max_population_size': pop_size,
+                'sampling_strategy_name': strategy,
+                'mutator': mutator,
+                'noise': noise,
+                'num_iter': num_iter_by_task[task],
+                'num_gpus': num_gpus,
+                'num_cpus': num_cpus,
+                'n': n,
+            }
 
-                experiments_to_run.append(config)
+            experiments_to_run.append(config)
 
     return experiments_to_run
 
