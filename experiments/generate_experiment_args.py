@@ -14,8 +14,8 @@ def get_args_for_roll_outs() -> list[dict[str, Any]]:
     tasks = [
         'harmbench',
         'prompt',
-        'cantbelate',
-        'cloudcast',
+        #'cantbelate',
+        #'cloudcast',
         'kernelbench',
         #'tweet',
     ]
@@ -25,11 +25,12 @@ def get_args_for_roll_outs() -> list[dict[str, Any]]:
         'highest_scoring',
         'tournament',
         'wheel',
-        'random',
+        #'random',
         'most_recent',
     ]
     mutators = ['kincontext', 'DE', 'GA', 'GEPA']
-    noises = [0, 0.1, 0.5]
+    noises = [0]
+    # noises = [0, 0.1, 0.5]
 
     # --- Dynamic Combination Generation
     experiments_to_run = []
@@ -44,7 +45,7 @@ def get_args_for_roll_outs() -> list[dict[str, Any]]:
         noises,
     ):
         # Handle Kincontext Mutator Dependency
-        n_values = [3, 20, 50] if mutator == 'kincontext' else [5]
+        n_values = [3, 10] if mutator == 'kincontext' else [5]
         # make sure context lengths don't exceed pop_size
         if len(n_values) > 1:
             n_values = [val for val in n_values if val <= pop_size]
