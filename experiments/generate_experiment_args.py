@@ -98,7 +98,7 @@ def get_args_for_long_run_cloud() -> list[dict[str, Any]]:
     """Generic roll outs experiment."""
     # --- Define Hyperparameter Parameter Search Space
     num_iter_by_task = {
-        'cantbelate': 5000,
+        'cantbelate': 1500,
         'cloudcast': 1500,
     }
     tasks = [
