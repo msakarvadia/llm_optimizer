@@ -85,6 +85,22 @@ def prompt_lm(
         )
 
 
+def resolve_visible_device(gpu_id: int) -> str:
+    """Map a local GPU index to its physical CUDA_VISIBLE_DEVICES value.
+
+    gpu_id is a LOCAL index into the devices already visible to this
+    process (e.g. 0/1), not an absolute physical GPU id. Re-slice the
+    parent's own CUDA_VISIBLE_DEVICES instead of returning gpu_id
+    unchanged, otherwise callers can get pinned to a physical GPU
+    outside this job's actual allocation whenever CUDA_VISIBLE_DEVICES
+    isn't "0,1".
+    """
+    parent_visible = os.environ.get('CUDA_VISIBLE_DEVICES', '')
+    if parent_visible:
+        return parent_visible.split(',')[gpu_id]
+    return str(gpu_id)
+
+
 def start_vllm_server(
     model_name: str,
     port: int = 8000,
@@ -116,16 +132,7 @@ def start_vllm_server(
     # Capture environment variables from your active shell session
     env_context = os.environ.copy()
 
-    # gpu_id is a LOCAL index into the devices already visible to this
-    # process (e.g. 0/1), not an absolute physical GPU id. Re-slice the
-    # parent's own CUDA_VISIBLE_DEVICES instead of overwriting it wholesale,
-    # otherwise this subprocess can get pinned to a physical GPU outside
-    # this job's actual allocation whenever CUDA_VISIBLE_DEVICES isn't "0,1".
-    parent_visible = os.environ.get('CUDA_VISIBLE_DEVICES', '')
-    if parent_visible:
-        env_context['CUDA_VISIBLE_DEVICES'] = parent_visible.split(',')[gpu_id]
-    else:
-        env_context['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
+    env_context['CUDA_VISIBLE_DEVICES'] = resolve_visible_device(gpu_id)
 
     # Tell Python HTTP engines to trust standard system root files
     # instead of local virtualenv variations that might be broken

@@ -7,9 +7,11 @@ import random
 from typing import Any
 
 import lm_eval
+from lm_eval.models.vllm_causallms import VLLM
 from lm_eval.tasks import TaskManager
 
 from llm_optimizer.tasks.base_task import Task
+from llm_optimizer.utils import resolve_visible_device
 
 
 class PromptOptimization(Task):
@@ -74,8 +76,23 @@ class PromptOptimization(Task):
         self.device = 'cpu'
         if self.eval_model_gpu_id != 'cpu':
             self.device = f'cuda:{self.eval_model_gpu_id}'
+            # Pin the vLLM engine to this task's assigned GPU, mirroring
+            # how start_vllm_server() pins its subprocess.
+            os.environ['CUDA_VISIBLE_DEVICES'] = resolve_visible_device(
+                self.eval_model_gpu_id,
+            )
 
         self.set_train_test_splits()
+
+        # Load the eval model once
+        self.lm = VLLM(
+            pretrained=self.model_name,
+            dtype='auto',
+            trust_remote_code=True,
+            gpu_memory_utilization=0.80,
+            enable_prefix_caching=True,
+            batch_size='auto',
+        )
 
     def set_train_test_splits(self) -> None:
         """Initializes indices for train/test splits."""
@@ -124,18 +141,11 @@ class PromptOptimization(Task):
     ) -> tuple[float, dict[str, Any]]:
         """Evaluate LLM optimized solution."""
         raw_results = lm_eval.simple_evaluate(
-            model='hf',
-            model_args=(
-                f'pretrained={self.model_name},'
-                f'trust_remote_code=True,'
-                f'attn_implementation=sdpa'
-            ),
+            model=self.lm,  # reuse the already-loaded vLLM engine
             tasks=[
                 self.benchmark,
             ],  # Use the official registered dataset string
             num_fewshot=0,  # 0-shot optimizes speed significantly
-            batch_size='auto',
-            device=self.device,
             # limit=50,  # Artificially limit prompts for quick testing
             system_instruction=solution,  # Forces prefix before generation
             apply_chat_template=True,  # Properly wraps the prompt
