@@ -10,6 +10,8 @@ import time
 
 import numpy as np
 import requests
+from openai import APIConnectionError
+from openai import APIStatusError
 from openai import OpenAI
 from sentence_transformers import SentenceTransformer
 
@@ -60,29 +62,50 @@ def prompt_lm(
     client: OpenAI,
     prompt: str,
     model_name: str = 'gemini-3.5-flash',
+    max_tokens: int | None = None,
+    max_retries: int = 3,
 ) -> str:
-    """Standard LLM api inference call."""
-    # print('doing llm inference call')
-    response = client.chat.completions.create(
-        model=model_name,
-        messages=[
-            {
-                'role': 'system',
-                'content': 'You are a helpful assistant.',
-            },
-            {
-                'role': 'user',
-                'content': prompt,
-            },
-        ],
-    )
-    raw_output = response.choices[0].message.content
-    if raw_output is not None:
-        return raw_output
-    else:
+    """Standard LLM api inference call.
+
+    Retries transient server/connection errors (e.g. 502s from a shared
+    proxy under concurrent load) with exponential backoff before giving up.
+    """
+    backoff_seconds = 2.0
+    for attempt in range(max_retries + 1):
+        try:
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {
+                        'role': 'system',
+                        'content': 'You are a helpful assistant.',
+                    },
+                    {
+                        'role': 'user',
+                        'content': prompt,
+                    },
+                ],
+                max_tokens=max_tokens,
+            )
+        except (APIStatusError, APIConnectionError):
+            if attempt == max_retries:
+                raise
+            sleep_time = backoff_seconds * (2**attempt)
+            print(
+                f'prompt_lm transient error on attempt {attempt + 1}/'
+                f'{max_retries + 1}, retrying in {sleep_time:.1f}s...',
+            )
+            time.sleep(sleep_time)
+            continue
+
+        raw_output = response.choices[0].message.content
+        if raw_output is not None:
+            return raw_output
         raise ValueError(
             'LM api call returned None instead of a valid string.',
         )
+
+    raise RuntimeError('prompt_lm: exhausted retries without returning')
 
 
 def resolve_visible_device(gpu_id: int) -> str:
