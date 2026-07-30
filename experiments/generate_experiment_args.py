@@ -169,8 +169,8 @@ def get_args_for_pop_dynamics() -> list[dict[str, Any]]:
     num_iter = 50
     task = 'tweet'
     pruning_strategy = 'lowest_scoring'
-    max_population_sizes = [10, 15]
-    sampling_strategy = 'wheel'
+    max_population_sizes = [15]
+    sampling_strategies = ['wheel', 'tournament']
     mutators = ['kincontext', 'DE', 'GA', 'GEPA']
     noise = 0
     sampling_prob = 0.5
@@ -178,12 +178,15 @@ def get_args_for_pop_dynamics() -> list[dict[str, Any]]:
 
     optimizer_llms = [
         'gemini-3.5-flash',
-        'gemini-2.5-flash',
+        #'gemini-2.5-flash',
         'openai/gpt-oss-120b',
     ]
 
     population_dir = (
         '/scratch/mansisak/llm_optimizer/curated_initial_populations'
+    )
+    population_dir = (
+        '/scratch/mansisak/llm_optimizer/curated_initial_populations_v2'
     )
     init_population_files = sorted(
         [
@@ -195,8 +198,9 @@ def get_args_for_pop_dynamics() -> list[dict[str, Any]]:
 
     experiments_to_run = []
 
-    for pop_size, mutator, llm, pop_path in itertools.product(
+    for pop_size, strategy, mutator, llm, pop_path in itertools.product(
         max_population_sizes,
+        sampling_strategies,
         mutators,
         optimizer_llms,
         init_population_files,
@@ -211,7 +215,7 @@ def get_args_for_pop_dynamics() -> list[dict[str, Any]]:
             'task_name': task,
             'pruning_strategy': pruning_strategy,
             'max_population_size': pop_size,
-            'sampling_strategy_name': sampling_strategy,
+            'sampling_strategy_name': strategy,
             'mutator': mutator,
             'noise': noise,
             'num_iter': num_iter,
