@@ -69,6 +69,11 @@ dev = [
     "virtualenv",
 ]
 
+notebooks = [
+    "jupyter",
+    "ipykernel",
+]
+
 docs = [
     "black==24.4.2",
     "mkdocs-autorefs==1.3.1",
