@@ -49,6 +49,11 @@ dependencies = [
     "PyYAML",
     "wandb",
     "networkx",
+    "matplotlib",
+    "umap-learn",
+    "jupyter",
+    "ipykernel",
+    "seaborn",
 ]
 
 [project.urls]
@@ -69,10 +74,6 @@ dev = [
     "virtualenv",
 ]
 
-notebooks = [
-    "jupyter",
-    "ipykernel",
-]
 
 docs = [
     "black==24.4.2",
