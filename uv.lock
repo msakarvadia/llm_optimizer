@@ -1136,6 +1136,15 @@ wheels = [
 ]
 
 [[package]]
+name = "codespell"
+version = "2.4.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/80/19/45e941380f69c042b43423513d201e6592346f992394347f5e7174c31407/codespell-2.4.3.tar.gz", hash = "sha256:cbe085e331227b37bb86ef8bddd08dc768c704ee9a07ca869852c093fa2793e2", size = 352773, upload-time = "2026-07-15T11:51:54.159Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8b/bf/bdb951d34eb169140b546f44be9ec4525d1acefb9eb5572071f5492b19fc/codespell-2.4.3-py3-none-any.whl", hash = "sha256:af2505b335e8573dbd2d384d1c4ef498f4006f4ba2d6fceca01e55b91f52628a", size = 340736, upload-time = "2026-07-15T11:51:52.925Z" },
+]
+
+[[package]]
 name = "colorama"
 version = "0.4.6"
 source = { registry = "https://pypi.org/simple" }
@@ -2603,6 +2612,21 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/33/f6/354ae6491228b5eb40e10d89c4d13c651fe1cf7556e35ebdded50cff57ce/gitpython-3.1.50.tar.gz", hash = "sha256:80da2d12504d52e1f998772dc5baf6e553f8d2fcfe1fcc226c9d9a2ee3372dcc", size = 219798, upload-time = "2026-05-06T04:01:26.571Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/20/7a/1c6e3562dfd8950adbb11ffbc65d21e7c89d01a6e4f137fa981056de25c5/gitpython-3.1.50-py3-none-any.whl", hash = "sha256:d352abe2908d07355014abdd21ddf798c2a961469239afec4962e9da884858f9", size = 212507, upload-time = "2026-05-06T04:01:23.799Z" },
+]
+
+[[package]]
+name = "globus-sdk"
+version = "4.8.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cryptography" },
+    { name = "pyjwt", extra = ["crypto"] },
+    { name = "requests" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4d/5e/0624d1361b3f9685a97c0123d8bb94f2038441f09fa40c87719789947728/globus_sdk-4.8.1.tar.gz", hash = "sha256:564b168e6fdcac2fe96b1e9a76ebd05666be84d34748315b579b0ecf9956e21a", size = 284145, upload-time = "2026-06-16T16:42:17.836Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/30/bb/2b865d79c5bdc574b428e5502a24e7517cdaeca2569f6baa051106f9fa7e/globus_sdk-4.8.1-py3-none-any.whl", hash = "sha256:48b57862902a26d8606e73374c354415724cfa9d99301af7e9e406659dafe78d", size = 442599, upload-time = "2026-06-16T16:42:16.226Z" },
 ]
 
 [[package]]
@@ -4152,6 +4176,7 @@ dependencies = [
     { name = "filelock" },
     { name = "fuzzywuzzy" },
     { name = "gepa" },
+    { name = "globus-sdk" },
     { name = "google-genai" },
     { name = "huggingface-hub" },
     { name = "ipykernel" },
@@ -4187,6 +4212,7 @@ dependencies = [
 
 [package.optional-dependencies]
 dev = [
+    { name = "codespell" },
     { name = "covdefaults" },
     { name = "coverage" },
     { name = "mypy" },
@@ -4217,6 +4243,7 @@ gpu = [
 requires-dist = [
     { name = "accelerate" },
     { name = "black", marker = "extra == 'docs'", specifier = "==24.4.2" },
+    { name = "codespell", marker = "extra == 'dev'" },
     { name = "colorama" },
     { name = "configargparse" },
     { name = "covdefaults", marker = "extra == 'dev'", specifier = ">=2.2" },
@@ -4225,6 +4252,7 @@ requires-dist = [
     { name = "filelock" },
     { name = "fuzzywuzzy" },
     { name = "gepa" },
+    { name = "globus-sdk" },
     { name = "google-genai" },
     { name = "huggingface-hub" },
     { name = "ipykernel" },
