@@ -181,7 +181,7 @@ OPTIMIZATION_OBJECTIVE = """Optimize a broadcast routing algorithm for multi-clo
 The algorithm decides how to route data from a single source to multiple destinations
 across cloud providers (AWS, GCP, Azure). The goal is to minimize total cost
 (egress fees + instance costs) while maintaining good transfer times.
-Output only the executable Python code to accomplish the task."""
+Output the executable Python code to accomplish the task inside a markdown code block."""
 
 OPTIMIZATION_BACKGROUND = """Key information about the problem domain:
 

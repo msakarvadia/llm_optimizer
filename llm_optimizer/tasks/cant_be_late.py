@@ -33,8 +33,8 @@ class CantBeLate(Task):
 
     def __init__(
         self,
-        metric: str = 'average cost',
-        direction: str = 'minimize',
+        metric: str = 'negative cost',
+        direction: str = 'maximize',
         max_traces: int = 15,
         **kwargs: Any,
     ) -> None:
@@ -112,7 +112,7 @@ OPTIMIZATION_OBJECTIVE = """Optimize a cloud scheduling strategy for the "Can't 
 The strategy decides when to use SPOT instances (cheap but can be preempted) vs ON_DEMAND
 instances (expensive but reliable) to complete a task before its deadline. The goal is to
 minimize cost while ensuring the task completes on time.
-Output only the executable Python code to accomplish the task."""
+Output the executable Python code to accomplish the task inside a markdown code block."""
 
 OPTIMIZATION_BACKGROUND = """Key information about the problem domain:
 
@@ -121,7 +121,7 @@ OPTIMIZATION_BACKGROUND = """Key information about the problem domain:
 - ClusterType.NONE: Wait without using any instances (no cost, but no progress)
 - restart_overhead: Time penalty incurred when switching from one instance type to another
 - The strategy MUST ensure task completion before the deadline (hard constraint)
-- Lower cost is better (scores are negative, representing cost in dollars)
+- Score is the negative of cost in dollars, so a higher (less negative) score means lower cost
 
 Evaluation feedback format:
 - Timeline format: start-end:TYPE@REGION[progress%] (e.g., "0.0-5.0:S@R0[50%]" means SPOT from hour 0-5 reaching 50% progress)
