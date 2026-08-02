@@ -72,6 +72,7 @@ class KernelBench(Task):
         **kwargs: Any,
     ) -> None:
         """Initialize task."""
+        self.failed_score = -1.0
         self.problem_id = kwargs['problem_id']
         self.level = kwargs['level']
         self.backend = kwargs['backend']  # cuda/triton/tilelang
@@ -131,7 +132,7 @@ class KernelBench(Task):
             # custom_kernel = (
             #    example_add_model_generation  # there is no code yet
             # )
-            speedup = -1.0
+            speedup = self.failed_score  # -1.0
             error_dict = {
                 'error': (
                     'This is a placeholder comment, '

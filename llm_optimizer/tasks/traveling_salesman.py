@@ -20,6 +20,7 @@ class TravelingSalesman(Task):
         **kwargs: Any,
     ) -> None:
         """Initialize task."""
+        self.failed_score = -math.inf
         rng = np.random.default_rng(seed=kwargs['seed'])
 
         self.num_points = kwargs['num_points']

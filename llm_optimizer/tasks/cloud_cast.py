@@ -38,6 +38,7 @@ class CloudCast(Task):
         self.task_description = f"""{OPTIMIZATION_OBJECTIVE}\n
         {OPTIMIZATION_BACKGROUND}"""
 
+        self.failed_score = FAILED_SCORE
         self.seed = kwargs['seed']
         random.seed(self.seed)
         self.solution_description = 'broadcast routing algorithm'

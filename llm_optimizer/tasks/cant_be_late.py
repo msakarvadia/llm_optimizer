@@ -43,6 +43,7 @@ class CantBeLate(Task):
         self.task_description = f"""{OPTIMIZATION_OBJECTIVE}\n
         {OPTIMIZATION_BACKGROUND}"""
 
+        self.failed_score = FAILED_SCORE
         self.solution_description = 'cloud scheduling algorithm'
         self.metric = metric
         self.direction = direction
