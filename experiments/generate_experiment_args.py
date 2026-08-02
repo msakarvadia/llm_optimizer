@@ -3,8 +3,16 @@
 from __future__ import annotations
 
 import itertools
+import json
 import os
+import pathlib
+import re
 from typing import Any
+
+import yaml
+from openai import OpenAI
+
+from llm_optimizer.utils import prompt_lm
 
 
 def get_args_for_roll_outs() -> list[dict[str, Any]]:
@@ -99,15 +107,15 @@ def get_args_for_long_run_cloud() -> list[dict[str, Any]]:
     """Generic roll outs experiment."""
     # --- Define Hyperparameter Parameter Search Space
     num_iter_by_task = {
-        'cantbelate': 1500,
-        'cloudcast': 1500,
+        'cantbelate': 1000,
+        'cloudcast': 1000,
     }
     tasks = [
         'cantbelate',
         'cloudcast',
     ]
     pruning_strategies = ['lowest_scoring']  # 'oldest'
-    max_population_sizes = [20, 50]
+    max_population_sizes = [20]  # 20, 50
     sampling_strategies = [
         'highest_scoring',
         'tournament',
@@ -164,6 +172,65 @@ def get_args_for_long_run_cloud() -> list[dict[str, Any]]:
     return experiments_to_run
 
 
+def run_random_number_bias_experiment(
+    n_samples: int = 1000,
+    max_retries: int = 3,
+) -> dict[str, list[int]]:
+    """Zero-shot probe for per-model bias in generated random numbers.
+
+    Standalone: bypasses the Task/optimizer machinery entirely, since
+    there's no solution to optimize here, just repeated independent
+    samples to check for non-uniformity against a fair prior.
+    """
+    models = ['gemini-3.5-flash', 'gemini-2.5-flash', 'openai/gpt-oss-120b']
+
+    project_root = pathlib.Path(__file__).parent.parent
+    with open(project_root / 'config.yaml') as f:
+        model_config = yaml.safe_load(f)
+
+    output_dir = project_root / 'experiments' / 'random_number_bias_results'
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    prompt = (
+        'Give me a random number. Respond with only the number, no other text.'
+    )
+
+    results: dict[str, list[int]] = {}
+
+    for model_name in models:
+        base_url = model_config[model_name]['base_url']
+        key_env_name = model_config[model_name]['key_env_name']
+        client = OpenAI(api_key=os.getenv(key_env_name), base_url=base_url)
+
+        samples: list[int] = []
+        for i in range(n_samples):
+            raw_output = prompt_lm(
+                client=client,
+                prompt=prompt,
+                model_name=model_name,
+                max_retries=max_retries,
+            )
+            match = re.search(r'-?\d+', raw_output)
+            if match is None:
+                print(
+                    f'[{model_name}] sample {i}: no number found in '
+                    f'{raw_output!r}, skipping',
+                )
+                continue
+            samples.append(int(match.group()))
+
+        results[model_name] = samples
+        print(f'{model_name}: collected {len(samples)}/{n_samples} samples')
+
+        safe_model_name = model_name.replace('/', '_')
+        safe_model_name = safe_model_name.replace('.', '')
+        output_path = output_dir / f'{safe_model_name}.json'
+        with open(output_path, 'w') as f:
+            json.dump(samples, f, indent=2)
+
+    return results
+
+
 def get_args_for_pop_dynamics(population_dir: str) -> list[dict[str, Any]]:
     """Experiments to understand population dynamics."""
     num_iter = 50
@@ -172,7 +239,7 @@ def get_args_for_pop_dynamics(population_dir: str) -> list[dict[str, Any]]:
     max_population_sizes = [15]
     sampling_strategies = ['wheel', 'tournament']
     mutators = ['kincontext', 'DE', 'GA', 'GEPA']
-    noise = 0
+    noises = [0, 1]
     sampling_prob = 0.5
     n = 3
 
@@ -198,10 +265,11 @@ def get_args_for_pop_dynamics(population_dir: str) -> list[dict[str, Any]]:
 
     experiments_to_run = []
 
-    for pop_size, strategy, mutator, pop_path, llm in itertools.product(
+    for pop_size, strategy, mutator, noise, pop_path, llm in itertools.product(
         max_population_sizes,
         sampling_strategies,
         mutators,
+        noises,
         init_population_files,
         optimizer_llms,
     ):
