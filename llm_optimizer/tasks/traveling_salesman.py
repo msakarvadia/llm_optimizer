@@ -15,8 +15,8 @@ class TravelingSalesman(Task):
 
     def __init__(
         self,
-        metric: str = 'length',
-        direction: str = 'lower',  # NOTE(MS): minimization
+        metric: str = 'negative length',
+        direction: str = 'maximize',
         **kwargs: Any,
     ) -> None:
         """Initialize task."""
@@ -50,8 +50,9 @@ class TravelingSalesman(Task):
             self.task_description += f'({i}): ({xi}, {yi})'
         self.task_description += (
             'Below are some previous traces and '
-            'their lengths. Lower lengths are better. The trace should '
-            'traverse all points exactly once. '
+            'their scores. Score is the negative of the trace length, so a '
+            'higher (less negative) score means a shorter, better trace. '
+            'The trace should traverse all points exactly once. '
             'The trace should start with <trace> and end with </trace>.'
         )
 
@@ -81,12 +82,15 @@ class TravelingSalesman(Task):
         """Evaluate the generated trace."""
         try:
             parsed_output = extract_string(solution)
-            score = evaluate_distance(
+            distance = evaluate_distance(
                 self.x,
                 self.y,
                 parsed_output,
                 self.num_decimals,
             )
+            # Score is -distance so that shorter (better) tours rank higher,
+            # matching the optimizer's always-maximize selection/pruning logic.
+            score = -distance
             error_dict = {}
         except Exception as error:
             print('THERE IS AN ERROR PARSING RESPONSE')
@@ -107,13 +111,10 @@ def evaluate_distance(
     #https://github.com/google-deepmind/opro/blob/main/opro/optimization/optimize_tsp.py#L172 # noqa
     """
     dis = 0.0
-    try:
-        for i in range(len(trace) - 1):
-            id0 = trace[i]
-            id1 = trace[i + 1]
-            dis += np.sqrt((x[id0] - x[id1]) ** 2 + (y[id0] - y[id1]) ** 2)
-    except:
-        return -1
+    for i in range(len(trace) - 1):
+        id0 = trace[i]
+        id1 = trace[i + 1]
+        dis += np.sqrt((x[id0] - x[id1]) ** 2 + (y[id0] - y[id1]) ** 2)
     id0 = trace[-1]
     id1 = trace[0]
     dis += np.sqrt((x[id0] - x[id1]) ** 2 + (y[id0] - y[id1]) ** 2)
@@ -153,7 +154,7 @@ def solve_tsp(
     num_points: int,
     num_decimals: int,
     starting_algorithm: str,
-) -> tuple[list[int], float, None]:
+) -> tuple[list[int], float]:
     """3 different tsp solving algos.
 
     # https://github.com/google-deepmind/opro/blob/main/opro/optimization/optimize_tsp.py#L187C3-L252C27 # noqa
@@ -236,4 +237,4 @@ def solve_tsp(
     min_dis = (
         np.round(min_dis, num_decimals) if num_decimals > 0 else int(min_dis)
     )
-    return gt_sol, min_dis, None
+    return gt_sol, min_dis
