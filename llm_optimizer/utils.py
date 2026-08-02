@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import ast
 import atexit
 import os
+import re
 import signal
 import subprocess
 import time
@@ -14,6 +16,39 @@ from openai import APIConnectionError
 from openai import APIStatusError
 from openai import OpenAI
 from sentence_transformers import SentenceTransformer
+
+
+def extract_python_code(output_string: str | None) -> str | None:
+    """Extract a single executable Python program from raw LLM output.
+
+    Prefers the first ```...``` fenced block (stripping a leading language
+    tag like "python"), falling back to the raw output if no fence is
+    present -- LLMs are inconsistent about wrapping code in markdown even
+    when asked to, so callers shouldn't assume either convention. Either
+    path must parse as valid Python or this returns None; a fenced block is
+    not on its own proof that a model put Python inside it.
+    """
+    if output_string is None:
+        return None
+
+    trimmed = output_string.strip()
+
+    code_match = re.search(r'```(.*?)```', trimmed, re.DOTALL)
+    if code_match:
+        code = code_match.group(1).strip()
+        if code.startswith('python'):
+            code = code[len('python') :].strip()
+        try:
+            ast.parse(code)
+            return code
+        except SyntaxError:
+            pass  # fenced block wasn't valid Python; fall through to raw
+
+    try:
+        ast.parse(trimmed)
+        return trimmed
+    except SyntaxError:
+        return None
 
 
 def semantic_similarity(strings: list[str]) -> dict[str, float]:
