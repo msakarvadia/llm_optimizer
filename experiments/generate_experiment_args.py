@@ -164,7 +164,7 @@ def get_args_for_long_run_cloud() -> list[dict[str, Any]]:
     return experiments_to_run
 
 
-def get_args_for_pop_dynamics() -> list[dict[str, Any]]:
+def get_args_for_pop_dynamics(population_dir: str) -> list[dict[str, Any]]:
     """Experiments to understand population dynamics."""
     num_iter = 50
     task = 'tweet'
@@ -177,17 +177,17 @@ def get_args_for_pop_dynamics() -> list[dict[str, Any]]:
     n = 3
 
     optimizer_llms = [
-        'gemini-3.5-flash',
-        #'gemini-2.5-flash',
         'openai/gpt-oss-120b',
+        'gemini-3.5-flash',
+        'gemini-2.5-flash',
     ]
 
-    population_dir = (
-        '/scratch/mansisak/llm_optimizer/curated_initial_populations'
-    )
-    population_dir = (
-        '/scratch/mansisak/llm_optimizer/curated_initial_populations_v2'
-    )
+    # population_dir = (
+    #    '/scratch/mansisak/llm_optimizer/curated_initial_populations'
+    # )
+    # population_dir = (
+    #    '/scratch/mansisak/llm_optimizer/curated_initial_populations_v2'
+    # )
     init_population_files = sorted(
         [
             os.path.join(population_dir, f)
@@ -198,12 +198,12 @@ def get_args_for_pop_dynamics() -> list[dict[str, Any]]:
 
     experiments_to_run = []
 
-    for pop_size, strategy, mutator, llm, pop_path in itertools.product(
+    for pop_size, strategy, mutator, pop_path, llm in itertools.product(
         max_population_sizes,
         sampling_strategies,
         mutators,
-        optimizer_llms,
         init_population_files,
+        optimizer_llms,
     ):
         benchmark = 'drop'
         num_cpus = 8

@@ -113,6 +113,7 @@ if __name__ == '__main__':
             'general_rollout',
             'population_dynamics',
             'cloud',
+            'perturb',
         ],
         help='Name of experiment.',
     )
@@ -149,7 +150,15 @@ if __name__ == '__main__':
     if args.experiment_name == 'general_rollout':
         experiments = get_args_for_roll_outs()
     if args.experiment_name == 'population_dynamics':
-        experiments = get_args_for_pop_dynamics()
+        population_dir = (
+            '/scratch/mansisak/llm_optimizer/curated_initial_populations_v2'
+        )
+        experiments = get_args_for_pop_dynamics(population_dir)
+    if args.experiment_name == 'perturb':
+        population_dir = (
+            '/scratch/mansisak/llm_optimizer/curated_perturbation_populations'
+        )
+        experiments = get_args_for_pop_dynamics(population_dir)
     if args.experiment_name == 'cloud':
         experiments = get_args_for_long_run_cloud()
     print(f'{len(experiments)=}')
