@@ -18,6 +18,7 @@ class MaximizeFunction(Task):
         **kwargs: Any,
     ) -> None:
         """Initialize task."""
+        self.failed_score = -math.inf
         self.task_description = (
             'There is a hidden 2d function is where'
             'the independent variable is x and the dependent variable is y.'
@@ -47,7 +48,7 @@ class MaximizeFunction(Task):
             score = solution
             error_dict = {}
         except Exception as error:
-            score = -math.inf
+            score = self.failed_score  # -math.inf
             error_dict = {'error': error}
 
         return score, error_dict, None

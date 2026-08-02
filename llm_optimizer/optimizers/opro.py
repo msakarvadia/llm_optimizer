@@ -77,6 +77,7 @@ class OPROOptimizer(Optimizer):
             seed=self.seed,
             max_population_size=self.max_population_size,
             pruning_strategy=self.pruning_strategy,
+            failed_score=getattr(task, 'failed_score', None),
         )
         self.solution_bank.read_from_checkpoint(self.experiment_dir)
 
@@ -149,6 +150,7 @@ class SolutionBank:
         seed: int,
         max_population_size: int,
         pruning_strategy: str,
+        failed_score: Any | None = None,
     ) -> None:
         """Initialize bank to store solution/score pairs."""
         # dict[optimizaiton_iteration (int) :
@@ -161,6 +163,9 @@ class SolutionBank:
         self.rng = np.random.default_rng(seed=self.seed)
         self.max_population_size = max_population_size
         self.pruning_strategy = pruning_strategy
+        # NOTE(MS): task-specific sentinel score for failed evaluations
+        # (e.g. -math.inf, -1.0); excluded from noise's std_dev calc
+        self.failed_score = failed_score
 
     def read_from_checkpoint(self, path: str) -> None:
         """Read current version of the solution banks."""
@@ -287,24 +292,37 @@ class SolutionBank:
 
         noise: scale factor; std_dev of the injected noise is
             noise * std_dev(current scores). Adaptive to the
-            current spread in rewards.
+            current spread in rewards. Scores equal to the task's
+            failed_score sentinel (if the task defines one) are
+            excluded from the std_dev calculation and left
+            untouched, so a run of failed evaluations can't blow up
+            the noise applied to every other score.
         """
         if noise <= 0:
             return items
 
-        numerical_scores = [float(score) for _, score, _ in items]
-        if len(numerical_scores) <= 1:
+        valid_scores = [
+            float(score)
+            for _, score, _ in items
+            if self.failed_score is None or score != self.failed_score
+        ]
+        if len(valid_scores) <= 1:
             return items
 
-        std_dev = float(np.std(numerical_scores))
-        return [
-            (
-                sol,
-                float(score) + random.gauss(0.0, noise * std_dev),
-                extra_info,
+        std_dev = float(np.std(valid_scores))
+        noised_items = []
+        for sol, score, extra_info in items:
+            if self.failed_score is not None and score == self.failed_score:
+                noised_items.append((sol, score, extra_info))
+                continue
+            noised_items.append(
+                (
+                    sol,
+                    float(score) + random.gauss(0.0, noise * std_dev),
+                    extra_info,
+                ),
             )
-            for sol, score, extra_info in items
-        ]
+        return noised_items
 
     def get_solutions(
         self,
