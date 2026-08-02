@@ -62,6 +62,7 @@ class OPROOptimizer(Optimizer):
         self.sampling_prob = kwargs['sampling_prob']
         self.max_population_size = kwargs['max_population_size']
         self.pruning_strategy = kwargs['pruning_strategy']
+        self.prune_noise = kwargs.get('prune_noise', 0.0)
         self.truncate_generated_solution = kwargs[
             'truncate_generated_solution'
         ]
@@ -134,7 +135,7 @@ class OPROOptimizer(Optimizer):
                 extra_info,
                 val_score,
             )
-            self.solution_bank.prune_population()
+            self.solution_bank.prune_population(noise=self.prune_noise)
             # some notion of experimental check pointing
             # NOTE(MS): currently done every time...maybe less freq?
             self.solution_bank.save_to_json(self.experiment_dir)
@@ -220,8 +221,14 @@ class SolutionBank:
                 default=json_serializable_fallback,
             )
 
-    def prune_population(self) -> None:
-        """Remove old population solutions."""
+    def prune_population(self, noise: float = 0.0) -> None:
+        """Remove old population solutions.
+
+        noise: same adaptive gaussian noise as get_solutions
+            (scale factor on std_dev of current scores), applied
+            to scores before ranking so 'lowest_scoring' pruning
+            isn't fully deterministic/one-sided.
+        """
         # if the population is smaller than max, do nothing
         if self.__len__() <= self.max_population_size:
             return
@@ -238,14 +245,16 @@ class SolutionBank:
             # NOTE(MS): I choose not to reindex solutions
 
         if self.pruning_strategy == 'lowest_scoring':
-            # Sort bank keys by their corresponding score value
+            # Sort bank keys by their (possibly noised) score value
             # in ascending order
-            keys_by_score = sorted(
-                self.bank.keys(),
-                key=lambda k: self.bank[k]['score'],
-            )
-            # Identify the keys with the lowest scores to drop
-            keys_to_remove = keys_by_score[:num_to_remove]
+            keys = list(self.bank.keys())
+            items = [(k, self.bank[k]['score'], None) for k in keys]
+            noised_items = self.apply_noise_to_scores(items, noise)
+            keys_by_score = sorted(noised_items, key=lambda item: item[1])
+            # Identify the keys with the lowest (noised) scores to drop
+            keys_to_remove = [
+                key for key, _, _ in keys_by_score[:num_to_remove]
+            ]
             # Delete the lowest scoring items directly
             for key in keys_to_remove:
                 del self.bank[key]
@@ -268,6 +277,34 @@ class SolutionBank:
 
         self.never_prune_bank[next_iter] = self.bank[next_iter]
         self.never_prune_bank[next_iter]['active_population'] = list(self.bank)
+
+    def apply_noise_to_scores(
+        self,
+        items: list[tuple[Any, Any, Any]],
+        noise: float,
+    ) -> list[tuple[Any, Any, Any]]:
+        """Add gaussian noise to the scores of (solution, score, extra_info).
+
+        noise: scale factor; std_dev of the injected noise is
+            noise * std_dev(current scores). Adaptive to the
+            current spread in rewards.
+        """
+        if noise <= 0:
+            return items
+
+        numerical_scores = [float(score) for _, score, _ in items]
+        if len(numerical_scores) <= 1:
+            return items
+
+        std_dev = float(np.std(numerical_scores))
+        return [
+            (
+                sol,
+                float(score) + random.gauss(0.0, noise * std_dev),
+                extra_info,
+            )
+            for sol, score, extra_info in items
+        ]
 
     def get_solutions(
         self,
@@ -300,25 +337,7 @@ class SolutionBank:
                 ),
             )
 
-        # Inject Gaussian noise if enabled (ignoring non-numerical scores)
-        # NOTE(MS): design decision is the noise is adaptive
-        # to the current spread in rewards
-        if noise > 0:
-            numerical_scores = [float(score) for _, score, _ in raw_items]
-
-            if len(numerical_scores) > 1:
-                std_dev = float(np.std(numerical_scores))
-
-                noised_items = []
-                for sol, score, extra_info in raw_items:
-                    noised_items.append(
-                        (
-                            sol,
-                            float(score) + random.gauss(0.0, noise * std_dev),
-                            extra_info,
-                        ),
-                    )
-                raw_items = noised_items
+        raw_items = self.apply_noise_to_scores(raw_items, noise)
 
         # NOTE(MS): Remove raw_items that have duplicate solutions
         # To keep the FIRST occurrence, reverse the list before converting:

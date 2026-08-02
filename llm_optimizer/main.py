@@ -123,6 +123,15 @@ if __name__ == '__main__':
         help="""Adds gaussian noise with mean 0
         stddev of noise*stdev(scores).""",
     )
+    parser.add_argument(
+        '--prune_noise',
+        type=float,
+        default=0.0,
+        help="""Opro specific, 'lowest_scoring' pruning only: adds
+        gaussian noise (mean 0, stddev of prune_noise*stdev(scores))
+        to scores before ranking for pruning, so pruning isn't fully
+        deterministic/one-sided.""",
+    )
 
     # NOTE(MS) this is not a rigorous method to compare budgets across
     # strategies....make better
@@ -371,6 +380,7 @@ if __name__ == '__main__':
         task=task,
         num_past_sol=args.n,
         noise=args.noise,
+        prune_noise=args.prune_noise,
         sampling_strategy_name=args.sampling_strategy_name,
         mutator=args.mutator,
         seed=args.seed,
