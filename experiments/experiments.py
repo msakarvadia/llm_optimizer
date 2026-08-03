@@ -14,6 +14,7 @@ import ray
 from generate_experiment_args import get_args_for_long_run_cloud
 from generate_experiment_args import get_args_for_pop_dynamics
 from generate_experiment_args import get_args_for_roll_outs
+from generate_experiment_args import run_random_number_bias_experiment
 
 script_dir = pathlib.Path(__file__).parent.resolve()
 project_root = str(script_dir.parent)
@@ -114,10 +115,17 @@ if __name__ == '__main__':
             'population_dynamics',
             'cloud',
             'perturb',
+            'random_number_bias',
         ],
         help='Name of experiment.',
     )
     args = parser.parse_args()
+
+    if args.experiment_name == 'random_number_bias':
+        # Standalone probe: direct LLM calls, no Task/optimizer/main.py,
+        # so it skips the Ray cluster + subprocess launch path entirely.
+        run_random_number_bias_experiment()
+        sys.exit(0)
 
     if not ray.is_initialized():
         try:
