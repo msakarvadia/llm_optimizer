@@ -7,11 +7,10 @@ import random
 from typing import Any
 
 import lm_eval
-from lm_eval.models.vllm_causallms import VLLM
 from lm_eval.tasks import TaskManager
 
 from llm_optimizer.tasks.base_task import Task
-from llm_optimizer.utils import resolve_visible_device
+from llm_optimizer.utils import start_vllm_server
 
 
 class PromptOptimization(Task):
@@ -73,25 +72,25 @@ class PromptOptimization(Task):
         self.eval_model_gpu_id = kwargs['eval_model_gpu_id']
         self.seed = kwargs['seed']
 
-        self.device = 'cpu'
-        if self.eval_model_gpu_id != 'cpu':
-            self.device = f'cuda:{self.eval_model_gpu_id}'
-            # Pin the vLLM engine to this task's assigned GPU, mirroring
-            # how start_vllm_server() pins its subprocess.
-            os.environ['CUDA_VISIBLE_DEVICES'] = resolve_visible_device(
-                self.eval_model_gpu_id,
-            )
-
         self.set_train_test_splits()
 
-        # Load the eval model once
-        self.lm = VLLM(
-            pretrained=self.model_name,
-            dtype='auto',
-            trust_remote_code=True,
-            gpu_memory_utilization=0.80,
-            enable_prefix_caching=True,
-            batch_size='auto',
+        # NOTE(MS): run the eval model as a separate OS process (vLLM's own
+        # OpenAI-compatible server) instead of loading it in-process here.
+        # Loading it in-process would leave a live CUDA context in this
+        # process; optimizers that fork worker processes to evaluate
+        # candidates (e.g. OpenEvolveOptimizer, via openevolve's
+        # ProcessPoolExecutor) would then fork *after* CUDA was already
+        # initialized, which CUDA doesn't support -- the worker deadlocks
+        # the moment it touches the GPU. Talking to a separate server over
+        # HTTP keeps this process (and anything forked from it) CUDA-free.
+        self.eval_server_port = 8702
+        gpu_id = (
+            0 if self.eval_model_gpu_id == 'cpu' else self.eval_model_gpu_id
+        )
+        start_vllm_server(
+            model_name=self.model_name,
+            port=self.eval_server_port,
+            gpu_id=gpu_id,
         )
 
     def set_train_test_splits(self) -> None:
@@ -141,7 +140,15 @@ class PromptOptimization(Task):
     ) -> tuple[float, dict[str, Any]]:
         """Evaluate LLM optimized solution."""
         raw_results = lm_eval.simple_evaluate(
-            model=self.lm,  # reuse the already-loaded vLLM engine
+            model='local-chat-completions',
+            model_args={
+                'base_url': (
+                    f'http://localhost:{self.eval_server_port}'
+                    '/v1/chat/completions'
+                ),
+                'model': self.model_name,
+                'num_concurrent': 8,
+            },
             tasks=[
                 self.benchmark,
             ],  # Use the official registered dataset string
