@@ -1,6 +1,4 @@
 """Logic to abstract away LLM-driven optimization."""
-# NOTE(MS): the refactored evaluate function
-# w/ valid score won't work for gepa anymore
 
 from __future__ import annotations
 
@@ -12,6 +10,7 @@ from gepa.optimize_anything import EngineConfig
 from gepa.optimize_anything import GEPAConfig
 from gepa.optimize_anything import optimize_anything
 from gepa.optimize_anything import ReflectionConfig
+from gepa.strategies.candidate_selector import TopKParetoCandidateSelector
 
 from llm_optimizer.optimizers.base_optimizer import Optimizer
 from llm_optimizer.tasks.base_task import Task
@@ -47,13 +46,26 @@ class GEPAOptimizer(Optimizer):
         self.num_parallel_search = num_parallel_search
         self.max_population_size = kwargs['max_population_size']
 
+    def _gepa_evaluator(self, candidate: str) -> tuple[float, dict[str, Any]]:
+        """Adapt Task.evaluate's 3-tuple return to GEPA's (score, side_info).
+
+        Task.evaluate returns (score, extra_info, val_score), but GEPA's
+        evaluator protocol expects either a bare score or a
+        (score, side_info) pair. Unpacking the raw 3-tuple as a 2-tuple
+        inside gepa's EvaluatorWrapper raises a ValueError, so we adapt
+        here instead of handing task.evaluate to gepa directly.
+
+        NOTE(MS): val_score is intentionally NOT included in side_info.
+        It's the held-out/test score, not training feedback -- exposing
+        it to the reflection LM would let optimization "see" the test
+        signal it's meant to generalize to, i.e. test-set hacking.
+        """
+        score, extra_info, _val_score = self.task.evaluate(candidate)
+        return score, dict(extra_info)
+
     def optimize(self, num_iter: int = 5) -> None:
         """Optimization loop for task."""
         # TODO(MS): impl convergence criteria
-
-        from gepa.strategies.candidate_selector import (
-            TopKParetoCandidateSelector,
-        )
 
         # rng = np.random.default_rng(seed=42)
         rng = random.Random(42)
@@ -89,7 +101,7 @@ class GEPAOptimizer(Optimizer):
         optimize_anything(
             # TODO(MS): give a seed candidate to the task definition!!
             seed_candidate=self.task.seed_candidate,
-            evaluator=self.task.evaluate,
+            evaluator=self._gepa_evaluator,
             objective=task_prompt,
             config=self.config,
         )
