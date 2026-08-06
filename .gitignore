@@ -130,3 +130,4 @@ dmypy.json
 
 # Slurm out files
 *.out
+*.err

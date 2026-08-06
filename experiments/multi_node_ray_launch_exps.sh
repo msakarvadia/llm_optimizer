@@ -54,13 +54,16 @@ sleep 15
 # Run your Python application
 # Capture the 1st command line argument, use fallback if empty
 EXP_NAME=${1:-"general_rollout"}
+# Any remaining args (e.g. --task_name, --population_dir, --num_gpus,
+# --num_iter, --num_cpus for population-init jobs) are forwarded as-is.
+shift || true
 
-echo "Starting experiment execution: $EXP_NAME"
+echo "Starting experiment execution: $EXP_NAME $*"
 echo "Submitting Ray application..."
 # FIX: Change 'ray://' to 'auto' so Ray targets the GCS port (6379) directly
 export RAY_ADDRESS="auto"
 source /scratch/mansisak/llm_optimizer/.venv/bin/activate
-python -u /scratch/mansisak/llm_optimizer/experiments/experiments.py --experiment_name $EXP_NAME
+python -u /scratch/mansisak/llm_optimizer/experiments/experiments.py --experiment_name $EXP_NAME "$@"
 
 # Clean up the cluster when done normally
 echo "Application finished. Stopping Ray cluster..."
