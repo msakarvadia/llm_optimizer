@@ -111,8 +111,8 @@ def get_args_for_long_run_cloud() -> list[dict[str, Any]]:
         'cloudcast': 1000,
     }
     tasks = [
-        'cantbelate',
         'cloudcast',
+        'cantbelate',
     ]
     pruning_strategies = ['lowest_scoring']  # 'oldest'
     max_population_sizes = [20]  # 20, 50
@@ -244,7 +244,7 @@ def get_args_for_pop_dynamics(population_dir: str) -> list[dict[str, Any]]:
     n = 3
 
     optimizer_llms = [
-        #'openai/gpt-oss-120b',
+        'openai/gpt-oss-120b',
         'gemini-3.5-flash',
         'gemini-2.5-flash',
     ]
