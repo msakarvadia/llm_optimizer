@@ -181,10 +181,14 @@ if __name__ == '__main__':
                 f'Failed to connect to cluster: {e}.',
                 'Falling back to fresh local instance.',
             )
-            # Clear env variable explicitly to ensure local fallback succeeds
+            # NOTE(MS): deleting RAY_ADDRESS alone isn't enough -- Ray also
+            # auto-discovers an existing cluster via a local bootstrap file
+            #  Passing address='local' forces a genuinely new local cluster
+            # regardless of any stale discovery state.
             if 'RAY_ADDRESS' in os.environ:
                 del os.environ['RAY_ADDRESS']
             ray.init(
+                address='local',
                 runtime_env=runtime_env,
                 object_store_memory=2 * 1024 * 1024 * 1024,
             )
