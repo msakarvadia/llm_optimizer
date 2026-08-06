@@ -9,6 +9,7 @@ import re
 import signal
 import subprocess
 import time
+from typing import Any
 
 import numpy as np
 import requests
@@ -93,17 +94,73 @@ def semantic_similarity(strings: list[str]) -> dict[str, float]:
     return semantic_sim_stats
 
 
+def _extract_token_usage(response: Any) -> dict[str, int]:
+    """Pull token counts off a chat completion response.
+
+    Not every OpenAI-compatible backend populates every field: local vLLM
+    and some proxied backends may omit `usage` entirely. Missing values
+    default to 0 rather than None so callers can sum them unconditionally.
+
+    reasoning_tokens is handled in two ways depending on the backend:
+    - OpenAI o-series / gpt-oss: reasoning_tokens is reported directly via
+      `completion_tokens_details.reasoning_tokens`. There it's a labeled
+      *subset* of completion_tokens, and total_tokens == prompt_tokens +
+      completion_tokens exactly
+    - Gemini (via its OpenAI-compat endpoint): `completion_tokens_details`
+      is always null, even though Gemini models think/reason internally
+      by default and bill those tokens into total_tokens. reasoning tokens =
+      total_tokens - minus prompt_tokens minus completion_tokens.
+    """
+    usage = getattr(response, 'usage', None)
+    if usage is None:
+        print('prompt_lm: response had no `usage` field, defaulting to 0s.')
+        return {
+            'input_tokens': 0,
+            'output_tokens': 0,
+            'reasoning_tokens': 0,
+            'total_tokens': 0,
+        }
+
+    input_tokens = getattr(usage, 'prompt_tokens', 0) or 0
+    output_tokens = getattr(usage, 'completion_tokens', 0) or 0
+    total_tokens = getattr(usage, 'total_tokens', 0) or 0
+
+    details = getattr(usage, 'completion_tokens_details', None)
+    explicit_reasoning = (
+        getattr(details, 'reasoning_tokens', None) if details else None
+    )
+    if explicit_reasoning is not None:
+        reasoning_tokens = explicit_reasoning
+    else:
+        # Best-effort recovery of hidden thinking tokens (e.g. Gemini);
+        # 0 if the backend genuinely doesn't do token-metered reasoning.
+        reasoning_tokens = max(0, total_tokens - input_tokens - output_tokens)
+
+    return {
+        'input_tokens': input_tokens,
+        'output_tokens': output_tokens,
+        'reasoning_tokens': reasoning_tokens,
+        'total_tokens': total_tokens,
+    }
+
+
 def prompt_lm(
     client: OpenAI,
     prompt: str,
     model_name: str = 'gemini-3.5-flash',
     max_tokens: int | None = None,
     max_retries: int = 3,
-) -> str:
+) -> tuple[str, dict[str, int]]:
     """Standard LLM api inference call.
 
     Retries transient server/connection errors (e.g. 502s from a shared
     proxy under concurrent load) with exponential backoff before giving up.
+
+    Returns (text, usage_dict), where usage_dict holds token counts
+    (input_tokens, output_tokens, reasoning_tokens, total_tokens) pulled
+    from the response. Usage is always extracted (it's already-present
+    response metadata, not an extra call) -- callers that don't need it
+    just discard the second element.
     """
     backoff_seconds = 2.0
     for attempt in range(max_retries + 1):
@@ -135,7 +192,7 @@ def prompt_lm(
 
         raw_output = response.choices[0].message.content
         if raw_output is not None:
-            return raw_output
+            return raw_output, _extract_token_usage(response)
         raise ValueError(
             'LM api call returned None instead of a valid string.',
         )

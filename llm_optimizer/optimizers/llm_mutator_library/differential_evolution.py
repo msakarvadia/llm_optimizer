@@ -31,8 +31,8 @@ class DEMutator(Mutator):
         task: Task,
     ) -> tuple[str, dict[str, int]]:
         """Single LLM-based Mutation of parent solutions."""
-        if len(past_solutions) < 3:
-            warnings.warn(
+        if len(past_solutions) < 3:  # noqa
+            warnings.warn(  # noqa
                 'Past solution bank has less than 3 solutions, falling back on kincontext mutator.',
             )
             mutator = KInContextMutator(
@@ -45,12 +45,11 @@ class DEMutator(Mutator):
                 self.client,
                 meta_prompt,
                 self.model_name,
-                return_usage=True,
             )
             return solution, token_usage
 
-        if len(past_solutions) > 3:
-            warnings.warn(
+        if len(past_solutions) > 3:  # noqa
+            warnings.warn(  # noqa
                 'Past solution bank has more than 3 solutions, will be truncated to last 3.',
             )
 
@@ -59,7 +58,6 @@ class DEMutator(Mutator):
             self.client,
             first_prompt,
             self.model_name,
-            return_usage=True,
         )
         second_prompt = self.get_second_prompt(
             past_solutions,
@@ -70,7 +68,6 @@ class DEMutator(Mutator):
             self.client,
             second_prompt,
             self.model_name,
-            return_usage=True,
         )
         return second_response, sum_token_usage(first_usage, second_usage)
 

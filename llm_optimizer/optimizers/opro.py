@@ -6,6 +6,7 @@ import json
 import os
 import random
 import shutil
+import time
 import warnings
 from typing import Any
 
@@ -48,13 +49,31 @@ class OPROOptimizer(Optimizer):
         self.experiment_dir = f'{kwargs["experiment_dir"]}/'
         print(f'{self.experiment_dir=}')
         os.makedirs(self.experiment_dir, exist_ok=True)
+
         self.init_population_path = kwargs['init_population_path']
+        # logic to seed initial population if it exists
+        # only if experiment hasn't been run before (i.e. no checkpoint exists)
         if os.path.isfile(self.init_population_path):
             for file_name in [
                 'long_running_solution_bank.json',
                 'current_solution_bank.json',
             ]:
                 destination_path = os.path.join(self.experiment_dir, file_name)
+                # if experiment dir already has a checkpoint,
+                # skip copying the initial seed population
+                # NOTE(MS): we are assuming that if the checkpoint exists,
+                # it was started w/ a valid initial seed population,
+                # so we don't want to overwrite it
+                if os.path.exists(destination_path):
+                    # NOTE(MS): don't clobber a checkpoint from a prior/
+                    # resumed run with the initial seed population again.
+                    print(
+                        f'Skipping seed copy, checkpoint already exists: '
+                        f'{destination_path}',
+                    )
+                    continue
+                # if the experiment dir doesn't exist,
+                # create it and copy the initial seed population
                 shutil.copy(self.init_population_path, destination_path)
 
         self.seed = kwargs['seed']
@@ -126,7 +145,16 @@ class OPROOptimizer(Optimizer):
                 noise=self.noise,
                 selection_prob=self.sampling_prob,
             )
-            solution = self.mutator.mutate(solution_bank, self.task)
+            start = time.perf_counter()
+            solution, token_usage = self.mutator.mutate(
+                solution_bank,
+                self.task,
+            )
+            wallclock_seconds = time.perf_counter() - start
+            generation_metadata = {
+                **token_usage,
+                'wallclock_seconds': wallclock_seconds,
+            }
             if self.truncate_generated_solution > 0:
                 solution = solution[: self.truncate_generated_solution]
             score, extra_info, val_score = self.task.evaluate(solution)
@@ -135,6 +163,7 @@ class OPROOptimizer(Optimizer):
                 score,
                 extra_info,
                 val_score,
+                generation_metadata,
             )
             self.solution_bank.prune_population(noise=self.prune_noise)
             # some notion of experimental check pointing
@@ -270,6 +299,7 @@ class SolutionBank:
         score: float,
         extra_info: dict[str, Any],
         val_score: float | None,
+        generation_metadata: dict[str, Any] | None = None,
     ) -> None:
         """Add solution/score pairs to bank."""
         next_iter = max(self.never_prune_bank, default=0) + 1
@@ -279,6 +309,7 @@ class SolutionBank:
         self.bank[next_iter]['score'] = score
         self.bank[next_iter]['extra_info'] = extra_info
         self.bank[next_iter]['val_score'] = val_score
+        self.bank[next_iter]['generation_metadata'] = generation_metadata
 
         self.never_prune_bank[next_iter] = self.bank[next_iter]
         self.never_prune_bank[next_iter]['active_population'] = list(self.bank)

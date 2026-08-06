@@ -37,7 +37,6 @@ class GEPAMutator(Mutator):
             self.client,
             first_prompt,
             self.model_name,
-            return_usage=True,
         )
         second_prompt = self.get_second_prompt(
             past_solutions,
@@ -48,7 +47,6 @@ class GEPAMutator(Mutator):
             self.client,
             second_prompt,
             self.model_name,
-            return_usage=True,
         )
         return second_response, sum_token_usage(first_usage, second_usage)
 
@@ -68,7 +66,7 @@ class GEPAMutator(Mutator):
         gepa_instructions = f"""\n
         You are an elite engineering and optimization algorithm. Your goal is to mutate an existing solutions to maximize its performance across a series of target objectives.
 
-You must improve upon the ancestor solution by applying high-level lessons learned from failure data. If the ancestor is a placeholder, replace it with a relevent solution.
+You must improve upon the ancestor solution by applying high-level lessons learned from failure data. If the ancestor is a placeholder, replace it with a relevant solution.
 
 [CURRENT ANCESTOR PROMPT]
 {past_solutions[-1][0]}

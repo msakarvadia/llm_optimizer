@@ -204,7 +204,7 @@ def run_random_number_bias_experiment(
 
         samples: list[int] = []
         for i in range(n_samples):
-            raw_output = prompt_lm(
+            raw_output, _ = prompt_lm(
                 client=client,
                 prompt=prompt,
                 model_name=model_name,
@@ -231,10 +231,21 @@ def run_random_number_bias_experiment(
     return results
 
 
-def get_args_for_pop_dynamics(population_dir: str) -> list[dict[str, Any]]:
-    """Experiments to understand population dynamics."""
-    num_iter = 50
-    task = 'tweet'
+def get_args_for_pop_dynamics(
+    population_dir: str,
+    task_name: str,
+    num_gpus: int,
+    num_iter: int,
+    num_cpus: int,
+) -> list[dict[str, Any]]:
+    """Experiments to understand population dynamics.
+
+    `task_name`, `num_gpus`, `num_iter`, and `num_cpus` are explicit, required
+    arguments rather than hardcoded (as `task_name='tweet'`/`num_iter=50`/
+    `num_gpus=1`/`num_cpus=8` used to be): `population_dir` is listed
+    non-recursively, so this only ever produces configs for whatever single
+    task's population files happen to be sitting directly in that directory.
+    """
     pruning_strategy = 'lowest_scoring'
     max_population_sizes = [15]
     sampling_strategies = ['wheel', 'tournament']
@@ -274,13 +285,11 @@ def get_args_for_pop_dynamics(population_dir: str) -> list[dict[str, Any]]:
         optimizer_llms,
     ):
         benchmark = 'drop'
-        num_cpus = 8
-        num_gpus = 1
 
         config = {
             'optimizer_name': 'opro',
             'optimizer_llm': llm,
-            'task_name': task,
+            'task_name': task_name,
             'pruning_strategy': pruning_strategy,
             'max_population_size': pop_size,
             'sampling_strategy_name': strategy,

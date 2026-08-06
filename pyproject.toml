@@ -188,6 +188,9 @@ required-imports = ["from __future__ import annotations"]
 [tool.ruff.lint.per-file-ignores]
 "*/__init__.py" = ["F401"]
 "*/*_test.py" = ["D10"]
+# long lines here are natural-language LLM prompt templates, not code
+"llm_optimizer/optimizers/llm_mutator_library/*.py" = ["E501"]
+"llm_optimizer/tasks/harm_bench.py" = ["E501"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

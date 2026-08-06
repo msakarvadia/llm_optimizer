@@ -119,6 +119,50 @@ if __name__ == '__main__':
         ],
         help='Name of experiment.',
     )
+    parser.add_argument(
+        '--task_name',
+        type=str,
+        default='tweet',
+        help="""Task for population-init experiments
+        (population_dynamics/perturb).""",
+    )
+    parser.add_argument(
+        '--population_dir',
+        type=str,
+        default=None,
+        help=(
+            'Population dir for population-init experiments '
+            '(population_dynamics/perturb); '
+            'defaults per experiment_name if unset.'
+        ),
+    )
+    parser.add_argument(
+        '--num_gpus',
+        type=int,
+        default=1,
+        help=(
+            'GPUs per run for population-init experiments '
+            '(population_dynamics/perturb).'
+        ),
+    )
+    parser.add_argument(
+        '--num_iter',
+        type=int,
+        default=50,
+        help=(
+            'Iterations per run for population-init experiments '
+            '(population_dynamics/perturb).'
+        ),
+    )
+    parser.add_argument(
+        '--num_cpus',
+        type=int,
+        default=8,
+        help=(
+            'CPUs per run for population-init experiments '
+            '(population_dynamics/perturb).'
+        ),
+    )
     args = parser.parse_args()
 
     if args.experiment_name == 'random_number_bias':
@@ -158,15 +202,27 @@ if __name__ == '__main__':
     if args.experiment_name == 'general_rollout':
         experiments = get_args_for_roll_outs()
     if args.experiment_name == 'population_dynamics':
-        population_dir = (
+        population_dir = args.population_dir or (
             '/scratch/mansisak/llm_optimizer/curated_initial_populations_v2'
         )
-        experiments = get_args_for_pop_dynamics(population_dir)
+        experiments = get_args_for_pop_dynamics(
+            population_dir,
+            task_name=args.task_name,
+            num_gpus=args.num_gpus,
+            num_iter=args.num_iter,
+            num_cpus=args.num_cpus,
+        )
     if args.experiment_name == 'perturb':
-        population_dir = (
+        population_dir = args.population_dir or (
             '/scratch/mansisak/llm_optimizer/curated_perturbation_populations'
         )
-        experiments = get_args_for_pop_dynamics(population_dir)
+        experiments = get_args_for_pop_dynamics(
+            population_dir,
+            task_name=args.task_name,
+            num_gpus=args.num_gpus,
+            num_iter=args.num_iter,
+            num_cpus=args.num_cpus,
+        )
     if args.experiment_name == 'cloud':
         experiments = get_args_for_long_run_cloud()
     print(f'{len(experiments)=}')

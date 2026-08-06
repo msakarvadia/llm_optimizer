@@ -81,7 +81,6 @@ class Mutator:
             self.client,
             meta_prompt,
             model_name=self.model_name,
-            return_usage=True,
         )
         return solution, token_usage
 
