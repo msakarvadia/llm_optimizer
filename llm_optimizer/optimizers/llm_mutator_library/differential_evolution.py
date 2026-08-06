@@ -8,6 +8,9 @@ from typing import Any
 from llm_optimizer.optimizers.llm_mutator_library.base_llm_mutator import (
     Mutator,
 )
+from llm_optimizer.optimizers.llm_mutator_library.base_llm_mutator import (
+    sum_token_usage,
+)
 from llm_optimizer.optimizers.llm_mutator_library.k_in_context import (
     KInContextMutator,
 )
@@ -26,7 +29,7 @@ class DEMutator(Mutator):
         self,
         past_solutions: list[tuple[Any, Any, Any]],
         task: Task,
-    ) -> str:
+    ) -> tuple[str, dict[str, int]]:
         """Single LLM-based Mutation of parent solutions."""
         if len(past_solutions) < 3:
             warnings.warn(
@@ -38,8 +41,13 @@ class DEMutator(Mutator):
                 model_name=self.model_name,
             )
             meta_prompt = mutator.get_meta_prompt(past_solutions, task)
-            solution = prompt_lm(self.client, meta_prompt, self.model_name)
-            return solution
+            solution, token_usage = prompt_lm(
+                self.client,
+                meta_prompt,
+                self.model_name,
+                return_usage=True,
+            )
+            return solution, token_usage
 
         if len(past_solutions) > 3:
             warnings.warn(
@@ -47,18 +55,24 @@ class DEMutator(Mutator):
             )
 
         first_prompt = self.get_first_prompt(past_solutions, task)
-        first_response = prompt_lm(self.client, first_prompt, self.model_name)
+        first_response, first_usage = prompt_lm(
+            self.client,
+            first_prompt,
+            self.model_name,
+            return_usage=True,
+        )
         second_prompt = self.get_second_prompt(
             past_solutions,
             task,
             first_response,
         )
-        second_response = prompt_lm(
+        second_response, second_usage = prompt_lm(
             self.client,
             second_prompt,
             self.model_name,
+            return_usage=True,
         )
-        return second_response
+        return second_response, sum_token_usage(first_usage, second_usage)
 
     def get_second_prompt(
         self,

@@ -73,13 +73,27 @@ class Mutator:
         self,
         past_solutions: list[tuple[Any, Any, Any]],
         task: Task,
-    ) -> str:
+    ) -> tuple[str, dict[str, int]]:
         """Single LLM-based Mutation of parent solutions."""
         meta_prompt = self.get_meta_prompt(past_solutions, task)
         print(meta_prompt)
-        solution = prompt_lm(
+        solution, token_usage = prompt_lm(
             self.client,
             meta_prompt,
             model_name=self.model_name,
+            return_usage=True,
         )
-        return solution
+        return solution, token_usage
+
+
+def sum_token_usage(*usages: dict[str, int]) -> dict[str, int]:
+    """Sum multiple prompt_lm token usage dicts (same keys) into one.
+
+    Used by multi-call mutators (DE/GA/GEPA) to report total tokens
+    spent across all of the LLM calls that went into a single mutation.
+    """
+    total: dict[str, int] = {}
+    for usage in usages:
+        for key, value in usage.items():
+            total[key] = total.get(key, 0) + value
+    return total
