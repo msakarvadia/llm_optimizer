@@ -123,8 +123,7 @@ if __name__ == '__main__':
         '--task_name',
         type=str,
         default='tweet',
-        help="""Task for population-init experiments
-        (population_dynamics/perturb).""",
+        help='Task to run.',
     )
     parser.add_argument(
         '--population_dir',
@@ -140,28 +139,19 @@ if __name__ == '__main__':
         '--num_gpus',
         type=int,
         default=1,
-        help=(
-            'GPUs per run for population-init experiments '
-            '(population_dynamics/perturb).'
-        ),
+        help='GPUs per run.',
     )
     parser.add_argument(
         '--num_iter',
         type=int,
         default=50,
-        help=(
-            'Iterations per run for population-init experiments '
-            '(population_dynamics/perturb).'
-        ),
+        help='Iterations per run.',
     )
     parser.add_argument(
         '--num_cpus',
         type=int,
         default=8,
-        help=(
-            'CPUs per run for population-init experiments '
-            '(population_dynamics/perturb).'
-        ),
+        help='CPUs per run.',
     )
     args = parser.parse_args()
 
@@ -204,7 +194,12 @@ if __name__ == '__main__':
     print('\n--- Launching Experiments ---')
 
     if args.experiment_name == 'general_rollout':
-        experiments = get_args_for_roll_outs()
+        experiments = get_args_for_roll_outs(
+            task_name=args.task_name,
+            num_gpus=args.num_gpus,
+            num_cpus=args.num_cpus,
+            num_iter=args.num_iter,
+        )
     if args.experiment_name == 'population_dynamics':
         population_dir = args.population_dir or (
             '/scratch/mansisak/llm_optimizer/curated_initial_populations_v2'
@@ -228,7 +223,12 @@ if __name__ == '__main__':
             num_cpus=args.num_cpus,
         )
     if args.experiment_name == 'cloud':
-        experiments = get_args_for_long_run_cloud()
+        experiments = get_args_for_long_run_cloud(
+            task_name=args.task_name,
+            num_gpus=args.num_gpus,
+            num_cpus=args.num_cpus,
+            num_iter=args.num_iter,
+        )
     print(f'{len(experiments)=}')
 
     # Define the experiments to run along with their resource requirements
