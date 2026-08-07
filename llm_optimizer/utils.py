@@ -308,11 +308,11 @@ def get_shared_vllm_requirements(
 ) -> list[tuple[str, str]]:
     """Return the (model_name, override_key) pairs `exp` needs a server for.
 
-    Mirrors the vllm-routing gates already inline in main.py.
-    experiments.py can decide which models to share
-    across a batch without re-deriving -- and risking drifting from --
-    those same gating rules. a model can appear more than once if its
-    name is reused across roles (e.g. optimizer_llm == inference_model_name).
+    Mirrors the vllm-routing gates already inline in main.py, so
+    experiments.py can decide which models to share across a batch without
+    re-deriving -- and risking drifting from -- those same gating rules. A
+    model can appear more than once if its name is reused across roles
+    (e.g. optimizer_llm == inference_model_name).
     """
     needed: list[tuple[str, str]] = []
     task_name = exp.get('task_name')

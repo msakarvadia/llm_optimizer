@@ -170,7 +170,7 @@ if __name__ == '__main__':
         default=None,
         help=(
             'general_rollout/harmbench only: override the target/inference '
-            'model (routed through a shared vllm server if config.yaml '
+            'model.'
         ),
     )
     args = parser.parse_args()
