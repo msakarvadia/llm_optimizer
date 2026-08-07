@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
+import openevolve.controller as _oe_controller
 import openevolve.utils.code_utils as _code_utils
 from openevolve import run_evolution
 from openevolve.config import Config
@@ -11,6 +13,10 @@ from openevolve.config import LLMModelConfig
 
 from llm_optimizer.optimizers.base_optimizer import Optimizer
 from llm_optimizer.tasks.base_task import Task
+
+# NOTE(MS): captured once, at import time, before _resumable_run below can
+# ever patch OpenEvolve.run -- gives it something un-patched to delegate to.
+_original_oe_run = _oe_controller.OpenEvolve.run
 
 # NOTE(MS): openevolve's evaluator callback only ever receives a file path
 # (it runs in a forked worker process, so it can't receive a live Python
@@ -41,9 +47,6 @@ def evaluator(solution_path: str) -> dict[str, float]:
 
     with open(solution_path, encoding='utf-8') as f:
         solution = f.read()
-    print('SOLUTION PATHvv' * 40)
-    print(solution_path)
-    print('SOLUTION PATH ^^' * 40)
 
     # openevolve auto-wraps initial_program in these markers if they're not
     # already present (see openevolve.api.run_evolution). Prefer extracting
@@ -59,10 +62,6 @@ def evaluator(solution_path: str) -> dict[str, float]:
     )
     solution = match.group(1).strip() if match else solution.strip()
 
-    print('OPEN EVOLVE SOLUTION vv' * 40)
-    print(solution)
-    print('OPEN EVOLVE SOLUTION ^^' * 40)
-
     if _ACTIVE_TASK is None:
         return {'combined_score': 0.0}
 
@@ -70,6 +69,57 @@ def evaluator(solution_path: str) -> dict[str, float]:
     # signal and must not leak into the evolutionary feedback loop
     result, extra_info, _val_score = _ACTIVE_TASK.evaluate(solution)
     return {'combined_score': result} | extra_info
+
+
+def _find_latest_checkpoint(experiment_dir: str) -> str | None:
+    """Find the highest-iteration checkpoint dir to resume from, if any.
+
+    openevolve has no auto-resume -- even its own CLI requires the user
+    to pass an explicit --checkpoint (see openevolve.cli), and just
+    prints the latest one at the end of a run for the user to copy/paste
+    next time. Same discovery logic as cli.py: sort
+    checkpoints/checkpoint_<N> dirs by trailing numeric suffix.
+    """
+    checkpoint_root = os.path.join(experiment_dir, 'checkpoints')
+    if not os.path.isdir(checkpoint_root):
+        return None
+    checkpoints = [
+        os.path.join(checkpoint_root, name)
+        for name in os.listdir(checkpoint_root)
+        if os.path.isdir(os.path.join(checkpoint_root, name))
+    ]
+    if not checkpoints:
+        return None
+    return sorted(
+        checkpoints,
+        key=lambda p: int(p.rsplit('_', 1)[-1]) if '_' in p else 0,
+    )[-1]
+
+
+async def _resumable_run(
+    self: _oe_controller.OpenEvolve,
+    iterations: int | None = None,
+    target_score: float | None = None,
+    checkpoint_path: str | None = None,
+) -> Any:
+    """Patched OpenEvolve.run: auto-resume from self.output_dir if possible.
+
+    run_evolution() (the high-level API optimize() calls below) never
+    forwards a checkpoint_path to controller.run(), even though the
+    controller itself supports resuming from one -- and openevolve has no
+    auto-resume of its own. Patching run() itself (instead of
+    reimplementing run_evolution()'s setup -- program/evaluator file prep,
+    controller construction, asyncio.run -- by hand) means we only add the
+    one missing lookup and let run_evolution() keep doing everything else.
+    """
+    if checkpoint_path is None:
+        checkpoint_path = _find_latest_checkpoint(self.output_dir)
+    return await _original_oe_run(
+        self,
+        iterations=iterations,
+        target_score=target_score,
+        checkpoint_path=checkpoint_path,
+    )
 
 
 class OpenEvolveOptimizer(Optimizer):
@@ -90,11 +140,22 @@ class OpenEvolveOptimizer(Optimizer):
         """Init optimizer."""
         self.task = task
 
+        # build experiment path (also used as openevolve's checkpoint dir
+        # -- see optimize(): run_evolution(output_dir=...) plus the
+        # _resumable_run patch above, which looks here for a checkpoint
+        # to resume from).
+        self.experiment_dir = f'{kwargs["experiment_dir"]}/'
+        print(f'{self.experiment_dir=}')
+        os.makedirs(self.experiment_dir, exist_ok=True)
+
         self.LLM_MODEL = kwargs['model_name']
         api_key = kwargs['api_key']
         if api_key is None:
             raise ValueError('API key not found.')
         self.config = Config()
+
+        # ckpt every solution
+        self.config.checkpoint_interval = 1
         # NOTE(MS): openevolve's worker processes rebuild LLMConfig from
         # scratch (see ProcessParallelController._serialize_config /
         # _worker_init), which re-triggers LLMConfig.__post_init__ and
@@ -151,6 +212,14 @@ class OpenEvolveOptimizer(Optimizer):
             llm_response
         )
 
+        # NOTE(MS): same reasoning as the parse_full_rewrite patch above --
+        # patching OpenEvolve.run (imported at module scope, not a copy)
+        # here means run_evolution()'s internal `OpenEvolve(...)` instance
+        # picks up the patched, auto-resuming version. See _resumable_run's
+        # docstring for why this is patched instead of exposing/duplicating
+        # the run loop ourselves.
+        _oe_controller.OpenEvolve.run = _resumable_run
+
         task_prompt = (
             f'{self.task.task_description} '
             f'Your goal is to {self.task.direction} {self.task.metric}. '
@@ -167,8 +236,5 @@ class OpenEvolveOptimizer(Optimizer):
             evaluator=evaluator,
             iterations=num_iter,
             config=self.config,
+            output_dir=self.experiment_dir,
         )
-
-        # TODO(MS): temporarily save solution bank
-        # experiment_dir = 'temp_results'
-        # self.solution_bank.save_to_json(experiment_dir)
