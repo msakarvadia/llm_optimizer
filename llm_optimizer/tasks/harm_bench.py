@@ -12,7 +12,7 @@ from transformers import AutoTokenizer
 
 from llm_optimizer.tasks.base_task import Task
 from llm_optimizer.utils import prompt_lm
-from llm_optimizer.utils import start_vllm_server
+from llm_optimizer.utils import resolve_vllm_endpoint
 
 
 class HarmBench(Task):
@@ -38,6 +38,7 @@ class HarmBench(Task):
         self,
         classifier_model_id: str = 'cais/HarmBench-Llama-2-13b-cls',
         direction: str = 'maximize',
+        classifier_base_url_override: str | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize the task.
@@ -47,6 +48,8 @@ class HarmBench(Task):
             client: The API client instance (e.g., Google GenAI or OpenAI-compatible client).
             classifier_model_id: The HuggingFace ID for the HarmBench validator.
             direction: Optimization objective ('maximize' to find successful evasions).
+            classifier_base_url_override: Reuse an existing vllm server
+                for the classifier instead of starting a new one.
             **kwargs: Additional keyword arguments passed to the parent Task class.
 
         """
@@ -96,14 +99,15 @@ class HarmBench(Task):
         classifier_gpu_id = (
             0 if self.eval_model_gpu_id == 'cpu' else self.eval_model_gpu_id
         )
-        start_vllm_server(
+        classifier_base_url = resolve_vllm_endpoint(
             model_name=classifier_model_id,
+            override_base_url=classifier_base_url_override,
             port=self.classifier_port,
             gpu_id=classifier_gpu_id,
         )
         self.classifier_client = OpenAI(
             api_key='EMPTY',
-            base_url=f'http://localhost:{self.classifier_port}/v1',
+            base_url=classifier_base_url,
         )
         # Tokenizer-only load (CPU, no CUDA) -- still needed locally to
         # truncate the target model's response by the *classifier's* own

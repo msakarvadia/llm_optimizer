@@ -12,6 +12,7 @@ import time
 from typing import Any
 
 import numpy as np
+import ray
 import requests
 from openai import APIConnectionError
 from openai import APIStatusError
@@ -299,3 +300,107 @@ def start_vllm_server(
     atexit.register(cleanup)
 
     return process
+
+
+def get_shared_vllm_requirements(
+    exp: dict[str, Any],
+    config: dict[str, Any],
+) -> list[tuple[str, str]]:
+    """Return the (model_name, override_key) pairs `exp` needs a server for.
+
+    Mirrors the vllm-routing gates already inline in main.py.
+    experiments.py can decide which models to share
+    across a batch without re-deriving -- and risking drifting from --
+    those same gating rules. a model can appear more than once if its
+    name is reused across roles (e.g. optimizer_llm == inference_model_name).
+    """
+    needed: list[tuple[str, str]] = []
+    task_name = exp.get('task_name')
+
+    # Role A: optimizer model -- always checked, every task_name resolves
+    # one.
+    optimizer_llm = exp.get('optimizer_llm', 'gemini-3.5-flash')
+    if config[optimizer_llm]['key_env_name'] == 'vllm':
+        needed.append((optimizer_llm, 'optimizer_base_url_override'))
+
+    # Role B: inference/target model -- gating depends on task_name.
+    inference_model_name = exp.get(
+        'inference_model_name',
+        'google/gemma-4-E4B-it',
+    )
+    if task_name == 'harmbench':
+        # Role C: classifier model -- harmbench-only, fixed model name that
+        # isn't surfaced as a CLI arg anywhere, so it's hardcoded here to
+        # match HarmBench.__init__'s default.
+        needed.append(
+            ('cais/HarmBench-Llama-2-13b-cls', 'classifier_base_url_override'),
+        )
+        if config[inference_model_name]['key_env_name'] == 'vllm':
+            needed.append(
+                (inference_model_name, 'inference_base_url_override'),
+            )
+    elif task_name == 'prompt':
+        # PromptOptimization always starts a local/shared server for
+        # this model, regardless of config.yaml routing (pre-existing
+        # behavior, not changed here).
+        needed.append((inference_model_name, 'inference_base_url_override'))
+
+    return needed
+
+
+def resolve_vllm_endpoint(
+    model_name: str,
+    override_base_url: str | None,
+    port: int,
+    gpu_id: int = 0,
+) -> str:
+    """Return a base_url for model_name, sharing a server if one exists.
+
+    If override_base_url is set, a server for this model is already
+    running elsewhere (e.g. a shared Ray actor) -- just point at it
+    instead of starting a redundant local one. Otherwise, fall back to
+    spinning up a local vllm server exactly as before, so callers keep
+    working standalone with no override supplied.
+    """
+    if override_base_url:
+        return override_base_url
+    start_vllm_server(model_name=model_name, port=port, gpu_id=gpu_id)
+    return f'http://localhost:{port}/v1'
+
+
+@ray.remote(num_gpus=1)
+class VLLMServerActor:
+    """Long-lived actor hosting one shared vllm server for a model.
+
+    Ray schedules this actor onto a node with a free GPU and keeps it
+    alive for as long as the actor handle is held, so its server can
+    be reused by many experiment subprocesses instead of each one
+    starting (and reloading weights for) its own.
+    """
+
+    def __init__(self, model_name: str, port: int, gpu_id: int = 0) -> None:
+        """Start the shared vllm server."""
+        process = start_vllm_server(
+            model_name=model_name,
+            port=port,
+            gpu_id=gpu_id,
+        )
+        if process is None:
+            raise RuntimeError(f'vLLM server failed to start for {model_name}')
+        # Narrowed to non-Optional here via the local var + early raise
+        # above, so self.process's inferred type is Popen[str] (not
+        # Popen[str] | None) in every method, not just __init__ --
+        # mypy doesn't carry a None-check's narrowing across methods for
+        # an attribute assigned directly from an Optional-returning call.
+        self.process: subprocess.Popen[str] = process
+        self.node_ip = ray.util.get_node_ip_address()
+        self.port = port
+
+    def get_base_url(self) -> str:
+        """Return the reachable base_url for this shared server."""
+        return f'http://{self.node_ip}:{self.port}/v1'
+
+    def shutdown(self) -> None:
+        """Explicitly kill the underlying vllm process."""
+        if self.process.poll() is None:
+            os.killpg(os.getpgid(self.process.pid), signal.SIGKILL)
