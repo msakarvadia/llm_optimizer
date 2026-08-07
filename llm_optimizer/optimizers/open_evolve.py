@@ -3,20 +3,27 @@
 from __future__ import annotations
 
 import os
+import time
 from typing import Any
 
 import openevolve.controller as _oe_controller
 import openevolve.utils.code_utils as _code_utils
+from openai.resources.chat.completions.completions import Completions
 from openevolve import run_evolution
 from openevolve.config import Config
 from openevolve.config import LLMModelConfig
 
 from llm_optimizer.optimizers.base_optimizer import Optimizer
+from llm_optimizer.optimizers.opro import SolutionBank
 from llm_optimizer.tasks.base_task import Task
+from llm_optimizer.utils import _extract_token_usage
 
 # NOTE(MS): captured once, at import time, before _resumable_run below can
 # ever patch OpenEvolve.run -- gives it something un-patched to delegate to.
 _original_oe_run = _oe_controller.OpenEvolve.run
+
+# NOTE(MS): same idea, for the token/timing patch below.
+_original_completions_create = Completions.create
 
 # NOTE(MS): openevolve's evaluator callback only ever receives a file path
 # (it runs in a forked worker process, so it can't receive a live Python
@@ -25,6 +32,72 @@ _original_oe_run = _oe_controller.OpenEvolve.run
 # optimize() call, set right before run_evolution() spins up its (forked)
 # worker pool, so workers inherit the correct reference automatically.
 _ACTIVE_TASK: Task | None = None
+_ACTIVE_SOLUTION_BANK: SolutionBank | None = None
+_ACTIVE_EXPERIMENT_DIR: str | None = None
+
+# NOTE(MS): accumulates token usage/wall time across every
+# Completions.create call since the last _pop_generation_metadata() read.
+# None means nothing has been accumulated since the last read (used to
+# tell "seed candidate, no generation call preceded it" apart from "a real
+# generation call that happened to report 0 tokens"). See
+# experiments/OPENEVOLVE_GENERATION_METADATA_PLAN.md for why this lives at
+# the SDK layer (not openevolve's own private _call_api), why
+# accumulate-not-overwrite is correct under retries and content-rejected
+# generations (their tokens roll forward onto the next successful
+# candidate), and why reading it at the top of evaluator() correlates it
+# to the right candidate without needing per-candidate IDs or locking --
+# each forked worker process has its own independent copy of this global.
+_GENERATION_METADATA_ACCUMULATOR: dict[str, float] | None = None
+
+
+def _metered_completions_create(
+    self: Completions,
+    *args: Any,
+    **kwargs: Any,
+) -> Any:
+    """Patched Completions.create: accumulate token usage + wall time.
+
+    Delegates fully to the original implementation and only observes the
+    return value as a side effect -- see module docstring above for why
+    this (not openevolve's OpenAILLM._call_api) is the patch point.
+    """
+    global _GENERATION_METADATA_ACCUMULATOR  # noqa: PLW0603
+
+    start = time.perf_counter()
+    response = _original_completions_create(self, *args, **kwargs)
+    elapsed = time.perf_counter() - start
+
+    usage = _extract_token_usage(response)
+    if _GENERATION_METADATA_ACCUMULATOR is None:
+        _GENERATION_METADATA_ACCUMULATOR = {
+            'input_tokens': 0,
+            'output_tokens': 0,
+            'reasoning_tokens': 0,
+            'total_tokens': 0,
+            'wallclock_seconds': 0.0,
+        }
+    for key, value in usage.items():
+        _GENERATION_METADATA_ACCUMULATOR[key] += value
+    _GENERATION_METADATA_ACCUMULATOR['wallclock_seconds'] += elapsed
+
+    return response
+
+
+def _pop_generation_metadata() -> dict[str, float] | None:
+    """Read-and-reset the token/timing accumulator.
+
+    Called as the first thing inside evaluator(), before task.evaluate()
+    can make any LLM calls of its own that would otherwise land in the
+    same accumulator. Returns None if nothing was accumulated since the
+    last read (the seed candidate, or -- in principle -- two evaluator()
+    calls with no generation call in between), matching OPRO's convention
+    of leaving generation_metadata unset for the seed.
+    """
+    global _GENERATION_METADATA_ACCUMULATOR  # noqa: PLW0603
+
+    metadata = _GENERATION_METADATA_ACCUMULATOR
+    _GENERATION_METADATA_ACCUMULATOR = None
+    return metadata
 
 
 def evaluator(solution_path: str) -> dict[str, float]:
@@ -42,8 +115,23 @@ def evaluator(solution_path: str) -> dict[str, float]:
     import re  # noqa: PLC0415 -- must stay local, see docstring above
 
     from llm_optimizer.optimizers.open_evolve import (  # noqa: PLC0415
+        _ACTIVE_EXPERIMENT_DIR,
+    )
+    from llm_optimizer.optimizers.open_evolve import (  # noqa: PLC0415
+        _ACTIVE_SOLUTION_BANK,
+    )
+    from llm_optimizer.optimizers.open_evolve import (  # noqa: PLC0415
         _ACTIVE_TASK,
     )
+    from llm_optimizer.optimizers.open_evolve import (  # noqa: PLC0415
+        _pop_generation_metadata,
+    )
+
+    # NOTE(MS): read-and-clear FIRST, before task.evaluate() gets a chance
+    # to make any LLM calls of its own -- see _pop_generation_metadata's
+    # docstring for why ordering (not scoping/IDs) is what makes this
+    # correlate to the right candidate.
+    generation_metadata = _pop_generation_metadata()
 
     with open(solution_path, encoding='utf-8') as f:
         solution = f.read()
@@ -65,9 +153,26 @@ def evaluator(solution_path: str) -> dict[str, float]:
     if _ACTIVE_TASK is None:
         return {'combined_score': 0.0}
 
-    # NOTE(MS): val_score deliberately discarded -- it's held-out/test
-    # signal and must not leak into the evolutionary feedback loop
-    result, extra_info, _val_score = _ACTIVE_TASK.evaluate(solution)
+    # NOTE(MS): val_score is used below only for our own SolutionBank
+    # reporting -- it's still deliberately excluded from the returned
+    # dict, so it never leaks into openevolve's own evolutionary feedback
+    # loop (that dict becomes Program.metrics, which feeds future prompts).
+    result, extra_info, val_score = _ACTIVE_TASK.evaluate(solution)
+
+    if (
+        _ACTIVE_SOLUTION_BANK is not None
+        and _ACTIVE_EXPERIMENT_DIR is not None
+    ):
+        _ACTIVE_SOLUTION_BANK.add_solution_score_pair(
+            solution,
+            result,
+            extra_info,
+            val_score,
+            generation_metadata,
+        )
+        _ACTIVE_SOLUTION_BANK.prune_population()
+        _ACTIVE_SOLUTION_BANK.save_to_json(_ACTIVE_EXPERIMENT_DIR)
+
     return {'combined_score': result} | extra_info
 
 
@@ -148,11 +253,32 @@ class OpenEvolveOptimizer(Optimizer):
         print(f'{self.experiment_dir=}')
         os.makedirs(self.experiment_dir, exist_ok=True)
 
+        # NOTE(MS): purely a reporting/observability side-channel -- does
+        # NOT drive candidate generation (unlike OPRO, where this IS the
+        # optimizer's state). openevolve's own checkpoints/ dir remains the
+        # actual live optimization state, resumed separately via
+        # _resumable_run. This just gives token-vs-score history in the
+        # same long_running_solution_bank.json / current_solution_bank.json
+        # format OPRO already writes, so the same notebooks can read either.
+        self.solution_bank = SolutionBank(
+            seed=kwargs['seed'],
+            max_population_size=kwargs['max_population_size'],
+            pruning_strategy=kwargs['pruning_strategy'],
+            failed_score=getattr(task, 'failed_score', None),
+        )
+        self.solution_bank.read_from_checkpoint(self.experiment_dir)
+
         self.LLM_MODEL = kwargs['model_name']
         api_key = kwargs['api_key']
         if api_key is None:
             raise ValueError('API key not found.')
         self.config = Config()
+
+        assert self.config.evaluator.parallel_evaluations == 1, (
+            'OpenEvolveOptimizer does not support '
+            'parallel_evaluations > 1 -- SolutionBank checkpointing is '
+            'only safe with a single worker process.'
+        )
 
         # ckpt every solution
         self.config.checkpoint_interval = 1
@@ -193,8 +319,10 @@ class OpenEvolveOptimizer(Optimizer):
         """Optimization loop for task."""
         # TODO(MS): impl convergence criteria
 
-        global _ACTIVE_TASK  # noqa: PLW0603 -- see module docstring above
+        global _ACTIVE_TASK, _ACTIVE_SOLUTION_BANK, _ACTIVE_EXPERIMENT_DIR  # noqa: PLW0603 -- see module docstring above
         _ACTIVE_TASK = self.task
+        _ACTIVE_SOLUTION_BANK = self.solution_bank
+        _ACTIVE_EXPERIMENT_DIR = self.experiment_dir
 
         # NOTE(MS): in full-rewrite mode, openevolve's own worker code does
         # `from openevolve.utils.code_utils import parse_full_rewrite` right
@@ -219,6 +347,13 @@ class OpenEvolveOptimizer(Optimizer):
         # docstring for why this is patched instead of exposing/duplicating
         # the run loop ourselves.
         _oe_controller.OpenEvolve.run = _resumable_run
+
+        # NOTE(MS): same reasoning again -- patching the SDK class here
+        # (before run_evolution()'s forked worker pool starts) means every
+        # worker inherits the metered version. See
+        # _metered_completions_create's docstring / plan doc for why this
+        # is the patch point instead of openevolve's own _call_api.
+        Completions.create = _metered_completions_create  # type: ignore[method-assign]
 
         task_prompt = (
             f'{self.task.task_description} '
