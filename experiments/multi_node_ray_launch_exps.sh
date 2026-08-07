@@ -10,13 +10,17 @@
 #SBATCH --error=ray_cluster_%j.err
 
 
-# --- CTRL-C INTERCEPTOR ---
+# --- SIGNAL INTERCEPTOR ---
+# Covers Ctrl-C (SIGINT) and Slurm's timeout/scancel/preemption signal
+# (SIGTERM) Doesn't help
+# against a hard SIGKILL (OOM-killer, `scancel -s KILL`) -- nothing
+# traps that.
 cleanup() {
-    echo -e "\nCtrl-C detected! Cleaning up multi-node Ray cluster..."
+    echo -e "\nSignal received! Cleaning up multi-node Ray cluster..."
     srun --nodes=$SLURM_JOB_NUM_NODES --ntasks=$SLURM_JOB_NUM_NODES --overlap uv run ray stop --force
     exit 1
 }
-trap cleanup SIGINT
+trap cleanup SIGINT SIGTERM
 # -------------------------------
 
 # Extract node hostnames

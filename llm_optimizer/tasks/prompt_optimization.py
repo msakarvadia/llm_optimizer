@@ -10,7 +10,7 @@ import lm_eval
 from lm_eval.tasks import TaskManager
 
 from llm_optimizer.tasks.base_task import Task
-from llm_optimizer.utils import start_vllm_server
+from llm_optimizer.utils import resolve_vllm_endpoint
 
 
 class PromptOptimization(Task):
@@ -20,6 +20,7 @@ class PromptOptimization(Task):
         self,
         metric: str = 'f1',
         direction: str = 'maximize',
+        inference_base_url_override: str | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize task."""
@@ -87,8 +88,9 @@ class PromptOptimization(Task):
         gpu_id = (
             0 if self.eval_model_gpu_id == 'cpu' else self.eval_model_gpu_id
         )
-        start_vllm_server(
+        self.eval_server_base_url = resolve_vllm_endpoint(
             model_name=self.model_name,
+            override_base_url=inference_base_url_override,
             port=self.eval_server_port,
             gpu_id=gpu_id,
         )
@@ -142,10 +144,7 @@ class PromptOptimization(Task):
         raw_results = lm_eval.simple_evaluate(
             model='local-chat-completions',
             model_args={
-                'base_url': (
-                    f'http://localhost:{self.eval_server_port}'
-                    '/v1/chat/completions'
-                ),
+                'base_url': f'{self.eval_server_base_url}/chat/completions',
                 'model': self.model_name,
                 'num_concurrent': 8,
             },

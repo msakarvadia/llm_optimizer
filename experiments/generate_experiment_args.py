@@ -15,18 +15,15 @@ from openai import OpenAI
 from llm_optimizer.utils import prompt_lm
 
 
-def get_args_for_roll_outs() -> list[dict[str, Any]]:
+def get_args_for_roll_outs(
+    task_name: str,
+    num_gpus: int,
+    num_cpus: int,
+    num_iter: int,
+    inference_model_name: str | None = None,
+) -> list[dict[str, Any]]:
     """Generic roll outs experiment."""
     # --- Define Hyperparameter Parameter Search Space
-    num_iter = 50
-    tasks = [
-        'harmbench',
-        'prompt',
-        #'cantbelate',
-        #'cloudcast',
-        'kernelbench',
-        #'tweet',
-    ]
     pruning_strategies = ['lowest_scoring']  # 'oldest'
     max_population_sizes = [5, 10, 20, 50]
     sampling_strategies = [
@@ -44,8 +41,7 @@ def get_args_for_roll_outs() -> list[dict[str, Any]]:
     experiments_to_run = []
 
     # Perform cross-product combinations using itertools
-    for task, pruning, pop_size, strategy, mutator, noise in itertools.product(
-        tasks,
+    for pruning, pop_size, strategy, mutator, noise in itertools.product(
         pruning_strategies,
         max_population_sizes,
         sampling_strategies,
@@ -61,23 +57,12 @@ def get_args_for_roll_outs() -> list[dict[str, Any]]:
         # Handle HarmBench llm optimizer
         optimizer_llm = (
             'mlabonne/NeuralDaredevil-8B-abliterated'
-            if task == 'harmbench'
+            if task_name == 'harmbench'
             else 'gemini-3.5-flash'
         )
 
         # Handle multiple benchmarks for prompt optimization
-        benchmarks = ['drop', 'gsm8k'] if task == 'prompt' else ['drop']
-
-        # Num GPUs
-        num_cpus = 8
-        if task in ['cloudcast', 'cantbelate']:
-            num_gpus = 0
-        if task in ['prompt', 'kernelbench']:
-            num_gpus = 1
-        if task in ['tweet']:
-            num_gpus = 1
-        if task in ['harmbench']:
-            num_gpus = 2
+        benchmarks = ['drop', 'gsm8k'] if task_name == 'prompt' else ['drop']
 
         for benchmark in benchmarks:
             for n in n_values:
@@ -85,7 +70,7 @@ def get_args_for_roll_outs() -> list[dict[str, Any]]:
                 config = {
                     'optimizer_name': 'opro',
                     'optimizer_llm': optimizer_llm,
-                    'task_name': task,
+                    'task_name': task_name,
                     'pruning_strategy': pruning,
                     'max_population_size': pop_size,
                     'sampling_strategy_name': strategy,
@@ -97,23 +82,22 @@ def get_args_for_roll_outs() -> list[dict[str, Any]]:
                     'benchmark': benchmark,
                     'n': n,
                 }
+                if task_name == 'harmbench' and inference_model_name:
+                    config['inference_model_name'] = inference_model_name
 
                 experiments_to_run.append(config)
 
     return experiments_to_run
 
 
-def get_args_for_long_run_cloud() -> list[dict[str, Any]]:
+def get_args_for_long_run_cloud(
+    task_name: str,
+    num_gpus: int,
+    num_cpus: int,
+    num_iter: int,
+) -> list[dict[str, Any]]:
     """Generic roll outs experiment."""
     # --- Define Hyperparameter Parameter Search Space
-    num_iter_by_task = {
-        'cantbelate': 1000,
-        'cloudcast': 1000,
-    }
-    tasks = [
-        'cloudcast',
-        'cantbelate',
-    ]
     pruning_strategies = ['lowest_scoring']  # 'oldest'
     max_population_sizes = [20]  # 20, 50
     sampling_strategies = [
@@ -129,8 +113,7 @@ def get_args_for_long_run_cloud() -> list[dict[str, Any]]:
     experiments_to_run = []
 
     # Perform cross-product combinations using itertools
-    for task, pruning, pop_size, strategy, mutator, noise in itertools.product(
-        tasks,
+    for pruning, pop_size, strategy, mutator, noise in itertools.product(
         pruning_strategies,
         max_population_sizes,
         sampling_strategies,
@@ -146,22 +129,18 @@ def get_args_for_long_run_cloud() -> list[dict[str, Any]]:
         # Handle HarmBench llm optimizer
         optimizer_llm = 'gemini-3.1-pro-preview'
 
-        # Num GPUs
-        num_cpus = 4
-        num_gpus = 0
-
         for n in n_values:
             # Build your clean parameter dict
             config = {
                 'optimizer_name': 'opro',
                 'optimizer_llm': optimizer_llm,
-                'task_name': task,
+                'task_name': task_name,
                 'pruning_strategy': pruning,
                 'max_population_size': pop_size,
                 'sampling_strategy_name': strategy,
                 'mutator': mutator,
                 'noise': noise,
-                'num_iter': num_iter_by_task[task],
+                'num_iter': num_iter,
                 'num_gpus': num_gpus,
                 'num_cpus': num_cpus,
                 'n': n,
@@ -240,9 +219,7 @@ def get_args_for_pop_dynamics(
 ) -> list[dict[str, Any]]:
     """Experiments to understand population dynamics.
 
-    `task_name`, `num_gpus`, `num_iter`, and `num_cpus` are explicit, required
-    arguments rather than hardcoded (as `task_name='tweet'`/`num_iter=50`/
-    `num_gpus=1`/`num_cpus=8` used to be): `population_dir` is listed
+    `population_dir` is listed
     non-recursively, so this only ever produces configs for whatever single
     task's population files happen to be sitting directly in that directory.
     """
@@ -260,12 +237,6 @@ def get_args_for_pop_dynamics(
         'gemini-2.5-flash',
     ]
 
-    # population_dir = (
-    #    '/scratch/mansisak/llm_optimizer/curated_initial_populations'
-    # )
-    # population_dir = (
-    #    '/scratch/mansisak/llm_optimizer/curated_initial_populations_v2'
-    # )
     init_population_files = sorted(
         [
             os.path.join(population_dir, f)

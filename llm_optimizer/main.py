@@ -21,7 +21,7 @@ from llm_optimizer.tasks.maximize_function import MaximizeFunction
 from llm_optimizer.tasks.prompt_optimization import PromptOptimization
 from llm_optimizer.tasks.traveling_salesman import TravelingSalesman
 from llm_optimizer.tasks.tweet_engagement import TweetEngagement
-from llm_optimizer.utils import start_vllm_server
+from llm_optimizer.utils import resolve_vllm_endpoint
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -193,6 +193,7 @@ if __name__ == '__main__':
             'meta-llama/Llama-3.1-8B-Instruct',
             'mlabonne/NeuralDaredevil-8B-abliterated',
             'google/gemma-4-E4B-it',
+            'meta-llama/Llama-3.2-1B-Instruct',
         ],
         help="""Name of llm to do inference w/ to test prompt optimization
         for example, on harmbench, this model is queried w/ adversarial
@@ -246,10 +247,36 @@ if __name__ == '__main__':
         help="""Name of LM eval harness benchmark.""",
     )
 
+    # vllm server sharing args; set by experiments.py when a shared
+    # server for this model is already running elsewhere, so this
+    # process can skip starting its own
+    parser.add_argument(
+        '--optimizer_base_url_override',
+        type=str,
+        default='',
+        help="""Reuse an existing vllm server for optimizer_llm.""",
+    )
+    parser.add_argument(
+        '--inference_base_url_override',
+        type=str,
+        default='',
+        help="""Reuse an existing vllm server for inference_model_name.""",
+    )
+    parser.add_argument(
+        '--classifier_base_url_override',
+        type=str,
+        default='',
+        help="""Reuse an existing vllm server for harmbench's
+        classifier_model_id.""",
+    )
+
     args = parser.parse_args()
     args_dict = vars(args).copy()
     args_dict.pop('num_iter', None)
     args_dict.pop('experiment_dir', None)
+    args_dict.pop('optimizer_base_url_override', None)
+    args_dict.pop('inference_base_url_override', None)
+    args_dict.pop('classifier_base_url_override', None)
     clean_values = [
         str(val).replace('.', '').replace('/', '')
         for val in args_dict.values()
@@ -268,28 +295,47 @@ if __name__ == '__main__':
 
     args.inference_base_url = config[args.inference_model_name]['base_url']
     inference_key_env_name = config[args.inference_model_name]['key_env_name']
-    # certain tasks require a local llm gpu
+    # certain tasks require a local llm gpu -- but only claim it if the
+    # task will actually use it. eval_model_gpu_id is HarmBench's *only*
+    # consumer for its classifier server and PromptOptimization's *only*
+    # consumer for its eval server (see those tasks' __init__), so once
+    # the relevant override points at a shared server, no local process
+    # touches this GPU at all and claiming it here would just make the
+    # RuntimeError check below fail for callers that (correctly) sized
+    # --num_gpus for a shared-server run.
     eval_model_gpu_id: int | str = 'cpu'
-    if args.task_name in ['harmbench', 'detoxify', 'prompt']:
+    needs_eval_model_gpu = args.task_name in [
+        'harmbench',
+        'detoxify',
+        'prompt',
+    ]
+    overridden = (
+        args.task_name == 'harmbench' and args.classifier_base_url_override
+    ) or (args.task_name == 'prompt' and args.inference_base_url_override)
+    if overridden:
+        needs_eval_model_gpu = False
+    if needs_eval_model_gpu:
         total_devices_needed += 1
         if total_devices_needed > total_devices_avaliable:
             raise RuntimeError(f'{total_devices_needed=}')
         eval_model_gpu_id = avaliable_devices[total_devices_needed - 1]
 
-    # if task requires additional infernece model, start vllm server
+    # if task requires additional inference model, get/start vllm server
     if inference_key_env_name == 'vllm' and args.task_name in ['harmbench']:
-        total_devices_needed += 1
-        if total_devices_needed > total_devices_avaliable:
-            raise RuntimeError(f'{total_devices_needed=}')
-        gpu_id = avaliable_devices[total_devices_needed - 1]
-        port = 8701
-        inference_process = start_vllm_server(
+        gpu_id = 0
+        # only claim a local GPU slot if we're actually starting a
+        # server here; a shared server needs none
+        if not args.inference_base_url_override:
+            total_devices_needed += 1
+            if total_devices_needed > total_devices_avaliable:
+                raise RuntimeError(f'{total_devices_needed=}')
+            gpu_id = avaliable_devices[total_devices_needed - 1]
+        args.inference_base_url = resolve_vllm_endpoint(
             model_name=args.inference_model_name,
-            port=port,
+            override_base_url=args.inference_base_url_override,
+            port=8701,
             gpu_id=gpu_id,
         )
-        # NOTE(MS): OVERRIDE base url to point to custom port
-        args.inference_base_url = f'http://localhost:{port}/v1'
         args.inference_api_key = 'EMPTY'
     else:
         args.inference_api_key = os.getenv(inference_key_env_name)
@@ -297,18 +343,20 @@ if __name__ == '__main__':
     args.base_url = config[args.optimizer_llm]['base_url']
     key_env_name = config[args.optimizer_llm]['key_env_name']
     if key_env_name == 'vllm':
-        total_devices_needed += 1
-        if total_devices_needed > total_devices_avaliable:
-            raise RuntimeError(f'{total_devices_needed=}')
-        gpu_id = avaliable_devices[total_devices_needed - 1]
-        port = 8700
-        process = start_vllm_server(
+        gpu_id = 0
+        # only claim a local GPU slot if we're actually starting a
+        # server here; a shared server needs none
+        if not args.optimizer_base_url_override:
+            total_devices_needed += 1
+            if total_devices_needed > total_devices_avaliable:
+                raise RuntimeError(f'{total_devices_needed=}')
+            gpu_id = avaliable_devices[total_devices_needed - 1]
+        args.base_url = resolve_vllm_endpoint(
             model_name=args.optimizer_llm,
-            port=port,
+            override_base_url=args.optimizer_base_url_override,
+            port=8700,
             gpu_id=gpu_id,
         )
-        # NOTE(MS): OVERRIDE base url to point to custom port
-        args.base_url = f'http://localhost:{port}/v1'
         args.api_key = 'EMPTY'
     else:
         args.api_key = os.getenv(key_env_name)
@@ -340,6 +388,7 @@ if __name__ == '__main__':
             'model_name': args.inference_model_name,
             'eval_model_gpu_id': eval_model_gpu_id,
             'seed': args.seed,
+            'classifier_base_url_override': args.classifier_base_url_override,
         },
         'kernelbench': {
             'level': args.level,
@@ -351,6 +400,7 @@ if __name__ == '__main__':
             'eval_model_gpu_id': eval_model_gpu_id,
             'benchmark': args.benchmark,
             'seed': args.seed,
+            'inference_base_url_override': args.inference_base_url_override,
         },
     }
     tasks: dict[str, type[Task]] = {

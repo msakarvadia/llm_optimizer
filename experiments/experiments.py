@@ -11,10 +11,21 @@ import sys
 from typing import Any
 
 import ray
+import yaml
 from generate_experiment_args import get_args_for_long_run_cloud
 from generate_experiment_args import get_args_for_pop_dynamics
 from generate_experiment_args import get_args_for_roll_outs
 from generate_experiment_args import run_random_number_bias_experiment
+
+from llm_optimizer.utils import get_shared_vllm_requirements
+from llm_optimizer.utils import VLLMServerActor
+
+# Starting port for per-model shared vllm servers. Distinct from the
+# fixed 8700/8701/8702/8703 ports main.py uses for its own local
+# (non-shared) servers -- here N different models can be scheduled onto
+# the same Ray node at once, so ports are allocated per unique model
+# rather than per role.
+SHARED_VLLM_BASE_PORT = 8800
 
 script_dir = pathlib.Path(__file__).parent.resolve()
 project_root = str(script_dir.parent)
@@ -123,8 +134,7 @@ if __name__ == '__main__':
         '--task_name',
         type=str,
         default='tweet',
-        help="""Task for population-init experiments
-        (population_dynamics/perturb).""",
+        help='Task to run.',
     )
     parser.add_argument(
         '--population_dir',
@@ -140,27 +150,27 @@ if __name__ == '__main__':
         '--num_gpus',
         type=int,
         default=1,
-        help=(
-            'GPUs per run for population-init experiments '
-            '(population_dynamics/perturb).'
-        ),
+        help='GPUs per run.',
     )
     parser.add_argument(
         '--num_iter',
         type=int,
         default=50,
-        help=(
-            'Iterations per run for population-init experiments '
-            '(population_dynamics/perturb).'
-        ),
+        help='Iterations per run.',
     )
     parser.add_argument(
         '--num_cpus',
         type=int,
         default=8,
+        help='CPUs per run.',
+    )
+    parser.add_argument(
+        '--inference_model_name',
+        type=str,
+        default=None,
         help=(
-            'CPUs per run for population-init experiments '
-            '(population_dynamics/perturb).'
+            'general_rollout/harmbench only: override the target/inference '
+            'model.'
         ),
     )
     args = parser.parse_args()
@@ -181,10 +191,10 @@ if __name__ == '__main__':
                 f'Failed to connect to cluster: {e}.',
                 'Falling back to fresh local instance.',
             )
-            # Clear env variable explicitly to ensure local fallback succeeds
             if 'RAY_ADDRESS' in os.environ:
                 del os.environ['RAY_ADDRESS']
             ray.init(
+                address='local',
                 runtime_env=runtime_env,
                 object_store_memory=2 * 1024 * 1024 * 1024,
             )
@@ -200,7 +210,13 @@ if __name__ == '__main__':
     print('\n--- Launching Experiments ---')
 
     if args.experiment_name == 'general_rollout':
-        experiments = get_args_for_roll_outs()
+        experiments = get_args_for_roll_outs(
+            task_name=args.task_name,
+            num_gpus=args.num_gpus,
+            num_cpus=args.num_cpus,
+            num_iter=args.num_iter,
+            inference_model_name=args.inference_model_name,
+        )
     if args.experiment_name == 'population_dynamics':
         population_dir = args.population_dir or (
             '/scratch/mansisak/llm_optimizer/curated_initial_populations_v2'
@@ -224,7 +240,12 @@ if __name__ == '__main__':
             num_cpus=args.num_cpus,
         )
     if args.experiment_name == 'cloud':
-        experiments = get_args_for_long_run_cloud()
+        experiments = get_args_for_long_run_cloud(
+            task_name=args.task_name,
+            num_gpus=args.num_gpus,
+            num_cpus=args.num_cpus,
+            num_iter=args.num_iter,
+        )
     print(f'{len(experiments)=}')
 
     # Define the experiments to run along with their resource requirements
@@ -239,30 +260,93 @@ if __name__ == '__main__':
     #    },
     # ]
 
-    # Launch loop: Trigger all tasks asynchronously and gather their futures
-    futures = []
-    for exp in experiments:
-        # add experiment_name as the meta_dir
-        # to store the experiments in
-        exp['experiment_dir'] = args.experiment_name
-        obj_ref = run_experiment.options(
-            num_gpus=exp['num_gpus'],
-            num_cpus=exp['num_cpus'],
-        ).remote(
-            # prebuilt_python_exe,
-            project_root,
-            exp,
+    print('\n--- Resolving Shared vLLM Servers ---')
+
+    with open(
+        os.path.join(project_root, 'config.yaml'),
+        encoding='utf-8',
+    ) as file:
+        vllm_config = yaml.safe_load(file)
+
+    # (model_name, override_key) pairs needed per experiment, computed up
+    # front so both the dedup below and the per-experiment injection loop
+    # reuse the same result instead of recomputing it twice.
+    exp_requirements = [
+        get_shared_vllm_requirements(exp, vllm_config) for exp in experiments
+    ]
+
+    # Dedup by model_name across the *whole* batch, not per experiment --
+    # that cross-experiment sharing is the entire point (e.g. the same
+    # optimizer model launching ~80 times in the harmbench sweep collapses
+    # to one shared actor here).
+    unique_models = sorted(
+        {model_name for reqs in exp_requirements for model_name, _ in reqs},
+    )
+    print(f'{unique_models=}')
+
+    # Get-or-create one VLLMServerActor per unique model, each on its own
+    # port -- N different models can land on the same Ray node at once,
+    # so ports must be allocated per model rather than reusing main.py's
+    # fixed per-role ports.
+    actors = {
+        # known Ray/mypy limitation, not a real attribute-defined bug.
+        model_name: VLLMServerActor.remote(  # type: ignore[attr-defined]
+            model_name,
+            SHARED_VLLM_BASE_PORT + i,
+            gpu_id=0,
         )
-        futures.append(obj_ref)
+        for i, model_name in enumerate(unique_models)
+    }
 
-    print('\n--- Worker Return Results ---')
+    # Blocks until each actor's underlying vllm server is healthy, since
+    # get_base_url is queued behind __init__'s health-check loop.
+    base_urls = {
+        model_name: ray.get(actor.get_base_url.remote())
+        for model_name, actor in actors.items()
+    }
+    print(f'{base_urls=}')
 
-    # Wait loop: Iterate through the futures list and block on them one by one
-    for obj_ref in futures:
-        try:
-            res = ray.get(obj_ref)
-            print(res)
-        except Exception as e:
-            # Prevent the script from crashing; log the specific failure
-            # and move to the next task
-            print(f'Experiment failed with error: {e}')
+    for exp, reqs in zip(experiments, exp_requirements, strict=True):
+        for model_name, override_key in reqs:
+            exp[override_key] = base_urls[model_name]
+
+    try:
+        # Launch loop: Trigger all tasks asynchronously and gather their
+        # futures
+        futures = []
+        for exp in experiments:
+            # add experiment_name as the meta_dir
+            # to store the experiments in
+            exp['experiment_dir'] = args.experiment_name
+            obj_ref = run_experiment.options(
+                num_gpus=exp['num_gpus'],
+                num_cpus=exp['num_cpus'],
+            ).remote(
+                # prebuilt_python_exe,
+                project_root,
+                exp,
+            )
+            futures.append(obj_ref)
+
+        print('\n--- Worker Return Results ---')
+
+        # Wait loop: iterate through the futures list and block on them
+        # one by one
+        for obj_ref in futures:
+            try:
+                res = ray.get(obj_ref)
+                print(res)
+            except Exception as e:
+                # Prevent the script from crashing; log the specific
+                # failure and move to the next task
+                print(f'Experiment failed with error: {e}')
+    finally:
+        print('\n--- Shutting Down Shared vLLM Servers ---')
+        for model_name, actor in actors.items():
+            try:
+                ray.get(actor.shutdown.remote())
+            except Exception as e:
+                print(
+                    f'Error shutting down shared server for {model_name}: {e}',
+                )
+            ray.kill(actor)
