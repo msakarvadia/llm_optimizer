@@ -35,6 +35,13 @@ class GEPAOptimizer(Optimizer):
         """Init optimizer."""
         self.task = task
 
+        # build experiment path (also used by gepa as its checkpoint dir --
+        # see optimize(): EngineConfig(run_dir=...). gepa auto-resumes from
+        # here if a gepa_state.bin checkpoint already exists.
+        self.experiment_dir = f'{kwargs["experiment_dir"]}/'
+        print(f'{self.experiment_dir=}')
+        os.makedirs(self.experiment_dir, exist_ok=True)
+
         # NOTE(MS): for litellm, need to add the 'gemini/' prefix
         os.environ['OPENAI_API_BASE'] = kwargs['base_url']
         os.environ['OPENAI_API_KEY'] = kwargs['api_key']
@@ -72,7 +79,10 @@ class GEPAOptimizer(Optimizer):
 
         self.config = GEPAConfig(
             engine=EngineConfig(
-                # run_dir=log_dir,
+                # NOTE(MS): setting run_dir gives us checkpoint/resume for
+                # free -- gepa auto-loads it on the next call if it's
+                # already present.
+                run_dir=self.experiment_dir,
                 max_metric_calls=num_iter,  # TODO: check if this is valid
                 # parallel=True,
                 # max_workers=64,
