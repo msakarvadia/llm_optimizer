@@ -20,6 +20,7 @@ def get_args_for_roll_outs(
     num_gpus: int,
     num_cpus: int,
     num_iter: int,
+    inference_model_name: str | None = None,
 ) -> list[dict[str, Any]]:
     """Generic roll outs experiment."""
     # --- Define Hyperparameter Parameter Search Space
@@ -81,6 +82,8 @@ def get_args_for_roll_outs(
                     'benchmark': benchmark,
                     'n': n,
                 }
+                if task_name == 'harmbench' and inference_model_name:
+                    config['inference_model_name'] = inference_model_name
 
                 experiments_to_run.append(config)
 
@@ -216,9 +219,7 @@ def get_args_for_pop_dynamics(
 ) -> list[dict[str, Any]]:
     """Experiments to understand population dynamics.
 
-    `task_name`, `num_gpus`, `num_iter`, and `num_cpus` are explicit, required
-    arguments rather than hardcoded (as `task_name='tweet'`/`num_iter=50`/
-    `num_gpus=1`/`num_cpus=8` used to be): `population_dir` is listed
+    `population_dir` is listed
     non-recursively, so this only ever produces configs for whatever single
     task's population files happen to be sitting directly in that directory.
     """
@@ -236,12 +237,6 @@ def get_args_for_pop_dynamics(
         'gemini-2.5-flash',
     ]
 
-    # population_dir = (
-    #    '/scratch/mansisak/llm_optimizer/curated_initial_populations'
-    # )
-    # population_dir = (
-    #    '/scratch/mansisak/llm_optimizer/curated_initial_populations_v2'
-    # )
     init_population_files = sorted(
         [
             os.path.join(population_dir, f)
