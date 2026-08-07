@@ -83,7 +83,15 @@ class GEPAOptimizer(Optimizer):
                 # free -- gepa auto-loads it on the next call if it's
                 # already present.
                 run_dir=self.experiment_dir,
-                max_metric_calls=num_iter,  # TODO: check if this is valid
+                # NOTE(MS): max_metric_calls counts individual evaluator
+                # calls (parent re-eval + new-candidate eval each iteration,
+                # plus a full-valset re-eval on every accepted proposal) --
+                # 2-3 per proposed candidate, not 1. max_candidate_proposals
+                # counts loop iterations (state.i, one per propose() call)
+                # regardless of how many evaluator calls that iteration
+                # burns, so num_iter here means "# of candidates GEPA gets
+                # to propose", matching OPRO/OpenEvolve's num_iter semantics.
+                max_candidate_proposals=num_iter,
                 # parallel=True,
                 # max_workers=64,
                 # cache_evaluation=True,
