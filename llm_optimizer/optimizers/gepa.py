@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import os
 import random
+import time
 from typing import Any
 
+import litellm
 from gepa.optimize_anything import EngineConfig
 from gepa.optimize_anything import GEPAConfig
 from gepa.optimize_anything import optimize_anything
@@ -13,7 +15,9 @@ from gepa.optimize_anything import ReflectionConfig
 from gepa.strategies.candidate_selector import TopKParetoCandidateSelector
 
 from llm_optimizer.optimizers.base_optimizer import Optimizer
+from llm_optimizer.optimizers.opro import SolutionBank
 from llm_optimizer.tasks.base_task import Task
+from llm_optimizer.utils import _extract_token_usage
 
 
 class GEPAOptimizer(Optimizer):
@@ -35,23 +39,85 @@ class GEPAOptimizer(Optimizer):
         """Init optimizer."""
         self.task = task
 
-        # build experiment path (also used by gepa as its checkpoint dir --
-        # see optimize(): EngineConfig(run_dir=...). gepa auto-resumes from
-        # here if a gepa_state.bin checkpoint already exists.
         self.experiment_dir = f'{kwargs["experiment_dir"]}/'
         print(f'{self.experiment_dir=}')
         os.makedirs(self.experiment_dir, exist_ok=True)
 
-        # NOTE(MS): for litellm, need to add the 'gemini/' prefix
+        # NOTE(MS): kept as a fallback for any gepa/litellm-internal code
+        # that still reads these -- _metered_reflection_lm below passes
+        # api_key/api_base explicitly on every call instead of relying on
+        # this process-global state.
         os.environ['OPENAI_API_BASE'] = kwargs['base_url']
         os.environ['OPENAI_API_KEY'] = kwargs['api_key']
         self.LLM_MODEL = f'openai/{kwargs["model_name"]}'
+        self._api_key = kwargs['api_key']
+        self._base_url = kwargs['base_url']
 
         # NOTE(MS): variables to manage in-context examples/rewards
         self.n = num_past_sol
         self.noise = noise
         self.num_parallel_search = num_parallel_search
         self.max_population_size = kwargs['max_population_size']
+
+        # for tracking token/time consumption per solution
+        self.solution_bank = SolutionBank(
+            seed=kwargs['seed'],
+            max_population_size=self.max_population_size,
+            pruning_strategy=kwargs['pruning_strategy'],
+            failed_score=getattr(task, 'failed_score', None),
+        )
+        self.solution_bank.read_from_checkpoint(self.experiment_dir)
+
+        # NOTE(MS): holds the most recent reflection_lm call's token/
+        # timing usage, overwritten (not accumulated) on each successful
+        # call. Overwrite -- not accumulate
+        # each successful call already is the complete total for
+        # whatever candidate follows it
+        self._last_generation_metadata: dict[str, Any] | None = None
+
+    def _metered_reflection_lm(
+        self,
+        prompt: str | list[dict[str, Any]],
+    ) -> str:
+        """Call litellm directly, recording token/timing usage.
+
+        Passed to gepa as a callable (not a bare model-name string) so
+        optimize_anything's own make_litellm_lm() conversion is
+        enables token/time tracking
+        """
+        messages = (
+            [{'role': 'user', 'content': prompt}]
+            if isinstance(prompt, str)
+            else prompt
+        )
+        start = time.perf_counter()
+        response = litellm.completion(
+            model=self.LLM_MODEL,
+            messages=messages,
+            api_key=self._api_key,
+            api_base=self._base_url,
+        )
+        elapsed = time.perf_counter() - start
+
+        usage = _extract_token_usage(response)
+        # NOTE(MS): overwrite, not accumulate -- see __init__'s NOTE.
+        self._last_generation_metadata = {
+            **usage,
+            'wallclock_seconds': elapsed,
+        }
+        return response.choices[0].message.content or ''
+
+    def _pop_generation_metadata(self) -> dict[str, Any] | None:
+        """Read-and-reset the pending reflection-call metadata.
+
+        Returns None if no reflection call has completed since the last
+        read -- true for the seed candidate, and for any re-check of an
+        already-known candidate (see _gepa_evaluator's novelty gate,
+        which never even calls this for those).
+        """
+        metadata = self._last_generation_metadata
+        self._last_generation_metadata = None
+        return metadata
 
     def _gepa_evaluator(self, candidate: str) -> tuple[float, dict[str, Any]]:
         """Adapt Task.evaluate's 3-tuple return to GEPA's (score, side_info).
@@ -66,8 +132,38 @@ class GEPAOptimizer(Optimizer):
         It's the held-out/test score, not training feedback -- exposing
         it to the reflection LM would let optimization "see" the test
         signal it's meant to generalize to, i.e. test-set hacking.
+
+        here is where we track the token/time consumption
         """
-        score, extra_info, _val_score = self.task.evaluate(candidate)
+        is_known = any(
+            entry['solution'] == candidate
+            for entry in self.solution_bank.never_prune_bank.values()
+        )
+        # NOTE(MS): only pop pending reflection-call metadata for a
+        # genuinely new candidate -- a re-check's text is always already
+        # known, so gating here means it can never accidentally inherit
+        # metadata left over from an unrelated (e.g. since-failed)
+        # proposal. This is a no-op on the normal path (a re-check would
+        # have popped None anyway, since no reflection call precedes it)
+        # and closes the one case that matters: a failed proposal that
+        # already burned real tokens getting misattributed to a later,
+        # unrelated candidate's cumulative total.
+        generation_metadata = (
+            None if is_known else self._pop_generation_metadata()
+        )
+
+        score, extra_info, val_score = self.task.evaluate(candidate)
+
+        self.solution_bank.upsert_solution_score_pair(
+            candidate,
+            score,
+            extra_info,
+            val_score,
+            generation_metadata,
+        )
+        self.solution_bank.prune_population()
+        self.solution_bank.save_to_json(self.experiment_dir)
+
         return score, dict(extra_info)
 
     def optimize(self, num_iter: int = 5) -> None:
@@ -92,7 +188,9 @@ class GEPAOptimizer(Optimizer):
                 # burns, so num_iter here means "# of candidates GEPA gets
                 # to propose", matching OPRO/OpenEvolve's num_iter semantics.
                 max_candidate_proposals=num_iter,
-                # parallel=True,
+                # NOTE(MS): parallel needs to be false to ensure
+                # correct resource tracking
+                parallel=False,
                 # max_workers=64,
                 # cache_evaluation=True,
                 # track_best_outputs=True,
@@ -105,7 +203,8 @@ class GEPAOptimizer(Optimizer):
                 ),
             ),
             reflection=ReflectionConfig(
-                reflection_lm=self.LLM_MODEL,
+                # NOTE(MS): passing our own callable for resource tracking
+                reflection_lm=self._metered_reflection_lm,
             ),
         )
 
@@ -123,7 +222,3 @@ class GEPAOptimizer(Optimizer):
             objective=task_prompt,
             config=self.config,
         )
-
-        # TODO(MS): temporarily save solution bank
-        # experiment_dir = 'temp_results'
-        # self.solution_bank.save_to_json(experiment_dir)
