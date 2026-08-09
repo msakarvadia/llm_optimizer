@@ -14,139 +14,129 @@ from openai import OpenAI
 
 from llm_optimizer.utils import prompt_lm
 
+# Local Ray-scheduling resources for the task subprocess itself -- independent
+# of the shared VLLMServerActor GPUs, which experiments.py provisions
+# separately per unique model. Most tasks route all inference/optimizer/
+# classifier calls through a shared server (or an API-hosted model) and need
+# zero local GPU; kernelbench compiles and executes the candidate kernel on
+# real hardware and needs a dedicated GPU per task.
+TASK_DEVICE_PROFILES: dict[str, dict[str, int]] = {
+    'kernelbench': {'num_gpus': 1, 'num_cpus': 4},
+}
+DEFAULT_DEVICE_PROFILE: dict[str, int] = {'num_gpus': 0, 'num_cpus': 4}
+
+
+def get_device_profile(task_name: str) -> dict[str, int]:
+    """Resolve local Ray-scheduling resources for a task subprocess."""
+    return TASK_DEVICE_PROFILES.get(task_name, DEFAULT_DEVICE_PROFILE)
+
+
+def get_default_optimizer_llms(task_name: str) -> list[str]:
+    """Resolve the default optimizer_llm(s) for a task_name.
+
+    Only used when the caller doesn't explicitly pass `optimizer_llms`
+    """
+    if task_name == 'harmbench':
+        return ['mlabonne/NeuralDaredevil-8B-abliterated']
+    if task_name == 'prompt':
+        return ['gemini-3.5-flash']
+    return ['gemini-3.1-pro-preview']
+
+
+def get_kincontext_n(task_name: str) -> int:
+    """Kincontext mutator's in-context history length, per task."""
+    if task_name in ('kernelbench', 'cloudcast', 'cantbelate'):
+        return 3
+    return 5
+
 
 def get_args_for_roll_outs(
     task_name: str,
-    num_gpus: int,
-    num_cpus: int,
     num_iter: int,
     inference_model_name: str | None = None,
+    optimizer_llms: list[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Generic roll outs experiment."""
+    """Generic roll outs experiment.
+
+    Grid merged in from the former get_args_for_long_run_cloud (the two
+    were redundant): fixed pruning strategy/pop size/noise, 3 sampling
+    strategies, and all 3 optimizer frameworks -- 'opro' gets the full
+    sampling-strategy x mutator sub-sweep (12 combos), 'gepa' and
+    'open_evolve' each contribute exactly one config apiece since neither
+    takes a mutator/sampling_strategy_name, for 14 combos total per
+    (benchmark, optimizer_llm) pair.
+    """
     # --- Define Hyperparameter Parameter Search Space
-    pruning_strategies = ['lowest_scoring']  # 'oldest'
-    max_population_sizes = [5, 10, 20, 50]
+    pruning_strategy = 'lowest_scoring'
+    max_population_size = 20
     sampling_strategies = [
         'highest_scoring',
         'tournament',
         'wheel',
-        #'random',
-        'most_recent',
     ]
     mutators = ['kincontext', 'DE', 'GA', 'GEPA']
-    noises = [0]
-    # noises = [0, 0.1, 0.5]
+    noise = 0
 
-    # --- Dynamic Combination Generation
+    optimizer_llms = optimizer_llms or get_default_optimizer_llms(task_name)
+    device_profile = get_device_profile(task_name)
+
+    # Handle multiple benchmarks for prompt optimization
+    benchmarks = ['drop', 'gsm8k'] if task_name == 'prompt' else ['drop']
+
     experiments_to_run = []
 
-    # Perform cross-product combinations using itertools
-    for pruning, pop_size, strategy, mutator, noise in itertools.product(
-        pruning_strategies,
-        max_population_sizes,
-        sampling_strategies,
-        mutators,
-        noises,
+    for benchmark, optimizer_llm in itertools.product(
+        benchmarks,
+        optimizer_llms,
     ):
-        # Handle Kincontext Mutator Dependency
-        n_values = [3, 10] if mutator == 'kincontext' else [5]
-        # make sure context lengths don't exceed pop_size
-        if len(n_values) > 1:
-            n_values = [val for val in n_values if val <= pop_size]
+        base_config: dict[str, Any] = {
+            'task_name': task_name,
+            'optimizer_llm': optimizer_llm,
+            'pruning_strategy': pruning_strategy,
+            'max_population_size': max_population_size,
+            'noise': noise,
+            'num_iter': num_iter,
+            'benchmark': benchmark,
+            **device_profile,
+        }
+        if task_name == 'harmbench' and inference_model_name:
+            base_config['inference_model_name'] = inference_model_name
+        if task_name == 'kernelbench':
+            base_config['backend'] = 'cuda'
+            base_config['problem_id'] = 1
+            base_config['level'] = 1
 
-        # Handle HarmBench llm optimizer
-        optimizer_llm = (
-            'mlabonne/NeuralDaredevil-8B-abliterated'
-            if task_name == 'harmbench'
-            else 'gemini-3.5-flash'
-        )
-
-        # Handle multiple benchmarks for prompt optimization
-        benchmarks = ['drop', 'gsm8k'] if task_name == 'prompt' else ['drop']
-
-        for benchmark in benchmarks:
+        # OPRO: full sampling-strategy x mutator sub-sweep. Kincontext is
+        # context-length-bound (n); every other mutator uses a fixed n.
+        for strategy, mutator in itertools.product(
+            sampling_strategies,
+            mutators,
+        ):
+            n_values = (
+                [get_kincontext_n(task_name)]
+                if mutator == 'kincontext'
+                else [5]
+            )
             for n in n_values:
-                # Build your clean parameter dict
-                config = {
-                    'optimizer_name': 'opro',
-                    'optimizer_llm': optimizer_llm,
-                    'task_name': task_name,
-                    'pruning_strategy': pruning,
-                    'max_population_size': pop_size,
-                    'sampling_strategy_name': strategy,
-                    'mutator': mutator,
-                    'noise': noise,
-                    'num_iter': num_iter,
-                    'num_gpus': num_gpus,
-                    'num_cpus': num_cpus,
-                    'benchmark': benchmark,
-                    'n': n,
-                }
-                if task_name == 'harmbench' and inference_model_name:
-                    config['inference_model_name'] = inference_model_name
+                experiments_to_run.append(
+                    {
+                        **base_config,
+                        'optimizer_name': 'opro',
+                        'sampling_strategy_name': strategy,
+                        'mutator': mutator,
+                        'n': n,
+                    },
+                )
 
-                experiments_to_run.append(config)
-
-    return experiments_to_run
-
-
-def get_args_for_long_run_cloud(
-    task_name: str,
-    num_gpus: int,
-    num_cpus: int,
-    num_iter: int,
-) -> list[dict[str, Any]]:
-    """Generic roll outs experiment."""
-    # --- Define Hyperparameter Parameter Search Space
-    pruning_strategies = ['lowest_scoring']  # 'oldest'
-    max_population_sizes = [20]  # 20, 50
-    sampling_strategies = [
-        'highest_scoring',
-        'tournament',
-        'wheel',
-        #'most_recent',
-    ]
-    mutators = ['kincontext', 'DE', 'GA', 'GEPA']
-    noises = [0]
-
-    # --- Dynamic Combination Generation
-    experiments_to_run = []
-
-    # Perform cross-product combinations using itertools
-    for pruning, pop_size, strategy, mutator, noise in itertools.product(
-        pruning_strategies,
-        max_population_sizes,
-        sampling_strategies,
-        mutators,
-        noises,
-    ):
-        # Handle Kincontext Mutator Dependency
-        n_values = [3] if mutator == 'kincontext' else [5]
-        # make sure context lengths don't exceed pop_size
-        if len(n_values) > 1:
-            n_values = [val for val in n_values if val <= pop_size]
-
-        # Handle HarmBench llm optimizer
-        optimizer_llm = 'gemini-3.1-pro-preview'
-
-        for n in n_values:
-            # Build your clean parameter dict
-            config = {
-                'optimizer_name': 'opro',
-                'optimizer_llm': optimizer_llm,
-                'task_name': task_name,
-                'pruning_strategy': pruning,
-                'max_population_size': pop_size,
-                'sampling_strategy_name': strategy,
-                'mutator': mutator,
-                'noise': noise,
-                'num_iter': num_iter,
-                'num_gpus': num_gpus,
-                'num_cpus': num_cpus,
-                'n': n,
-            }
-
-            experiments_to_run.append(config)
+        # GEPA / OpenEvolve: neither reads mutator/sampling_strategy_name,
+        # so each contributes exactly one config here.
+        for optimizer_name in ('gepa', 'open_evolve'):
+            experiments_to_run.append(
+                {
+                    **base_config,
+                    'optimizer_name': optimizer_name,
+                },
+            )
 
     return experiments_to_run
 
@@ -213,9 +203,7 @@ def run_random_number_bias_experiment(
 def get_args_for_pop_dynamics(
     population_dir: str,
     task_name: str,
-    num_gpus: int,
     num_iter: int,
-    num_cpus: int,
 ) -> list[dict[str, Any]]:
     """Experiments to understand population dynamics.
 
@@ -236,6 +224,8 @@ def get_args_for_pop_dynamics(
         'gemini-3.5-flash',
         'gemini-2.5-flash',
     ]
+
+    device_profile = get_device_profile(task_name)
 
     init_population_files = sorted(
         [
@@ -267,12 +257,11 @@ def get_args_for_pop_dynamics(
             'mutator': mutator,
             'noise': noise,
             'num_iter': num_iter,
-            'num_gpus': num_gpus,
-            'num_cpus': num_cpus,
             'benchmark': benchmark,
             'sampling_prob': sampling_prob,
             'n': n,
             'init_population_path': pop_path,
+            **device_profile,
         }
         experiments_to_run.append(config)
 

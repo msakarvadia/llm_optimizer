@@ -12,7 +12,6 @@ from typing import Any
 
 import ray
 import yaml
-from generate_experiment_args import get_args_for_long_run_cloud
 from generate_experiment_args import get_args_for_pop_dynamics
 from generate_experiment_args import get_args_for_roll_outs
 from generate_experiment_args import run_random_number_bias_experiment
@@ -124,7 +123,6 @@ if __name__ == '__main__':
         choices=[
             'general_rollout',
             'population_dynamics',
-            'cloud',
             'perturb',
             'random_number_bias',
         ],
@@ -133,8 +131,14 @@ if __name__ == '__main__':
     parser.add_argument(
         '--task_name',
         type=str,
-        default='tweet',
-        help='Task to run.',
+        nargs='+',
+        default=['tweet'],
+        help=(
+            'Task(s) to run. Accepts multiple values -- all task_names '
+            'are batched into one Ray cluster / experiments list, so '
+            'shared vLLM servers get deduped across tasks too (e.g. '
+            'harmbench and prompt sharing the same inference model).'
+        ),
     )
     parser.add_argument(
         '--population_dir',
@@ -147,22 +151,21 @@ if __name__ == '__main__':
         ),
     )
     parser.add_argument(
-        '--num_gpus',
-        type=int,
-        default=1,
-        help='GPUs per run.',
-    )
-    parser.add_argument(
         '--num_iter',
         type=int,
         default=50,
         help='Iterations per run.',
     )
     parser.add_argument(
-        '--num_cpus',
-        type=int,
-        default=8,
-        help='CPUs per run.',
+        '--optimizer_llm',
+        type=str,
+        nargs='+',
+        default=None,
+        help=(
+            'general_rollout only: optimizer LLM(s) to sweep. If unset, '
+            'defaults per task_name (harmbench -> abliterated model, '
+            'prompt -> gemini-3.5-flash, else -> gemini-3.1-pro-preview).'
+        ),
     )
     parser.add_argument(
         '--inference_model_name',
@@ -209,43 +212,39 @@ if __name__ == '__main__':
 
     print('\n--- Launching Experiments ---')
 
-    if args.experiment_name == 'general_rollout':
-        experiments = get_args_for_roll_outs(
-            task_name=args.task_name,
-            num_gpus=args.num_gpus,
-            num_cpus=args.num_cpus,
-            num_iter=args.num_iter,
-            inference_model_name=args.inference_model_name,
-        )
-    if args.experiment_name == 'population_dynamics':
-        population_dir = args.population_dir or (
-            '/scratch/mansisak/llm_optimizer/curated_initial_populations_v2'
-        )
-        experiments = get_args_for_pop_dynamics(
-            population_dir,
-            task_name=args.task_name,
-            num_gpus=args.num_gpus,
-            num_iter=args.num_iter,
-            num_cpus=args.num_cpus,
-        )
-    if args.experiment_name == 'perturb':
-        population_dir = args.population_dir or (
-            '/scratch/mansisak/llm_optimizer/curated_perturbation_populations'
-        )
-        experiments = get_args_for_pop_dynamics(
-            population_dir,
-            task_name=args.task_name,
-            num_gpus=args.num_gpus,
-            num_iter=args.num_iter,
-            num_cpus=args.num_cpus,
-        )
-    if args.experiment_name == 'cloud':
-        experiments = get_args_for_long_run_cloud(
-            task_name=args.task_name,
-            num_gpus=args.num_gpus,
-            num_cpus=args.num_cpus,
-            num_iter=args.num_iter,
-        )
+    experiments: list[dict[str, Any]] = []
+    for task_name in args.task_name:
+        if args.experiment_name == 'general_rollout':
+            experiments.extend(
+                get_args_for_roll_outs(
+                    task_name=task_name,
+                    num_iter=args.num_iter,
+                    inference_model_name=args.inference_model_name,
+                    optimizer_llms=args.optimizer_llm,
+                ),
+            )
+        elif args.experiment_name == 'population_dynamics':
+            population_dir = args.population_dir or (
+                '/scratch/mansisak/llm_optimizer/curated_initial_populations_v2'
+            )
+            experiments.extend(
+                get_args_for_pop_dynamics(
+                    population_dir,
+                    task_name=task_name,
+                    num_iter=args.num_iter,
+                ),
+            )
+        elif args.experiment_name == 'perturb':
+            population_dir = args.population_dir or (
+                '/scratch/mansisak/llm_optimizer/curated_perturbation_populations'
+            )
+            experiments.extend(
+                get_args_for_pop_dynamics(
+                    population_dir,
+                    task_name=task_name,
+                    num_iter=args.num_iter,
+                ),
+            )
     print(f'{len(experiments)=}')
 
     # Define the experiments to run along with their resource requirements
