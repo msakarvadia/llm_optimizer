@@ -195,6 +195,17 @@ class SolutionBank:
         # NOTE(MS): task-specific sentinel score for failed evaluations
         # (e.g. -math.inf, -1.0); excluded from noise's std_dev calc
         self.failed_score = failed_score
+        # NOTE(MS): running total of generation_metadata['total_tokens']
+        # across every candidate ever logged (add_solution_score_pair
+        # only -- upsert_solution_score_pair's update-existing-entry path
+        # doesn't touch this, since a later re-evaluation shouldn't move
+        # when in the token budget that candidate was originally created).
+        # Stamped onto each new entry as 'cumulative_tokens_spent' so a
+        # tokens-spent-vs-score curve can be read directly off the
+        # checkpoint JSON (ordered by iteration key) with no
+        # post-processing. Restored from the checkpoint on read, not
+        # itself persisted as a separate field.
+        self.cumulative_tokens_spent = 0
 
     def read_from_checkpoint(self, path: str) -> None:
         """Read current version of the solution banks."""
@@ -214,6 +225,17 @@ class SolutionBank:
                     int(k): v for k, v in raw_data.items()
                 }
             print(f'Loaded never_prune_bank from {never_prune_path}')
+            if self.never_prune_bank:
+                # NOTE(MS): cumulative_tokens_spent only ever grows, so the
+                # highest-iteration entry (not necessarily the numerically
+                # largest value, in case of float weirdness -- but in
+                # practice these are the same) holds the running total as
+                # of the last candidate logged.
+                last_entry = self.never_prune_bank[max(self.never_prune_bank)]
+                self.cumulative_tokens_spent = last_entry.get(
+                    'cumulative_tokens_spent',
+                    0,
+                )
 
         # Load current_solution_bank if it exists
         if os.path.exists(bank_path):
@@ -304,15 +326,104 @@ class SolutionBank:
         """Add solution/score pairs to bank."""
         next_iter = max(self.never_prune_bank, default=0) + 1
 
+        if generation_metadata:
+            self.cumulative_tokens_spent += (
+                generation_metadata.get('total_tokens', 0) or 0
+            )
+
         self.bank[next_iter] = {}
         self.bank[next_iter]['solution'] = solution
         self.bank[next_iter]['score'] = score
         self.bank[next_iter]['extra_info'] = extra_info
         self.bank[next_iter]['val_score'] = val_score
         self.bank[next_iter]['generation_metadata'] = generation_metadata
+        # NOTE(MS): total tokens spent (across every candidate, this one
+        # included) by the time this candidate was created -- pairs with
+        # 'score' to plot a tokens-spent-vs-score curve directly off this
+        # file, ordered by iteration key. See __init__'s NOTE.
+        self.bank[next_iter]['cumulative_tokens_spent'] = (
+            self.cumulative_tokens_spent
+        )
+        # NOTE(MS): # of evaluator calls that have contributed to this
+        # entry's current score/extra_info/val_score -- 1 here, bumped by
+        # upsert_solution_score_pair on later re-evaluations of the same
+        # candidate text (e.g. GEPA's minibatch-check -> full-valset-check
+        # -> possible later re-selection as a parent). score/extra_info
+        # only ever reflect the *most recent* of those calls, so this is
+        # the one place the fact that N calls happened isn't silently
+        # lost.
+        self.bank[next_iter]['eval_count'] = 1
 
         self.never_prune_bank[next_iter] = self.bank[next_iter]
         self.never_prune_bank[next_iter]['active_population'] = list(self.bank)
+
+    def upsert_solution_score_pair(
+        self,
+        solution: str,
+        score: float,
+        extra_info: dict[str, Any],
+        val_score: float | None,
+        generation_metadata: dict[str, Any] | None = None,
+    ) -> None:
+        """Add a solution, or update its existing entry if already logged.
+
+        Unlike add_solution_score_pair (always appends a new row),
+        this is for optimizers where the *same* candidate text can be
+        evaluated multiple times (e.g. GEPA re-evaluating a candidate on
+        a full valset right after a minibatch check, or re-evaluating it
+        again much later if reselected as a parent) and only one row per
+        distinct candidate is wanted in the checkpoint.
+
+        score/extra_info/val_score are overwritten with this call's
+        values (the most recent evaluation is treated as authoritative).
+        generation_metadata's numeric fields are summed into whatever is
+        already stored, rather than replaced, so the row always reflects
+        total tokens/time spent across every evaluation of this candidate
+        to date. Non-numeric fields (e.g. a boolean flag) are overwritten.
+
+        NOTE(MS): O(n) scan over never_prune_bank per call -- fine at the
+        scale of a single optimization run's candidate count, but would
+        need an index (e.g. dict[str, int]) if that stops being true.
+        """
+        existing_iter = next(
+            (
+                i
+                for i, entry in self.never_prune_bank.items()
+                if entry['solution'] == solution
+            ),
+            None,
+        )
+        if existing_iter is None:
+            self.add_solution_score_pair(
+                solution,
+                score,
+                extra_info,
+                val_score,
+                generation_metadata,
+            )
+            return
+
+        entry = self.never_prune_bank[existing_iter]
+        entry['score'] = score
+        entry['extra_info'] = extra_info
+        entry['val_score'] = val_score
+        if generation_metadata:
+            merged = dict(entry.get('generation_metadata') or {})
+            for key, value in generation_metadata.items():
+                if isinstance(value, (int, float)) and not isinstance(
+                    value,
+                    bool,
+                ):
+                    merged[key] = merged.get(key, 0) + value
+                else:
+                    merged[key] = value
+            entry['generation_metadata'] = merged
+        # NOTE(MS): entry is the same dict object as self.bank[existing_iter]
+        # (add_solution_score_pair aliases them, not copies), so if this
+        # iter is still in the active/pruned population the mutation above
+        # already applies there too. If it's been pruned out already, we
+        # deliberately leave it out of self.bank -- pruning already decided
+        # it's not part of the "current" view.
 
     def apply_noise_to_scores(
         self,
