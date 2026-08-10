@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import glob
 import itertools
 import json
 import os
@@ -200,6 +201,19 @@ def run_random_number_bias_experiment(
     return results
 
 
+# population_dynamics's curated-population directories use these bookkeeping
+# names (see the iteration-budget curation notebook) rather than main.py's
+# raw --task_name choices, since 'prompt' splits into 'prompt_drop'/
+# 'prompt_gsm8k' directories but is a single main.py task_name distinguished
+# by --benchmark instead. Any task_name not listed here (i.e. every existing
+# caller) falls back to today's behavior via the .get(..., (task_name,
+# 'drop')) default below: benchmark='drop', task_name passed through as-is.
+POP_DYNAMICS_TASK_MAP: dict[str, tuple[str, str]] = {
+    'prompt_drop': ('prompt', 'drop'),
+    'prompt_gsm8k': ('prompt', 'gsm8k'),
+}
+
+
 def get_args_for_pop_dynamics(
     population_dir: str,
     task_name: str,
@@ -207,52 +221,63 @@ def get_args_for_pop_dynamics(
 ) -> list[dict[str, Any]]:
     """Experiments to understand population dynamics.
 
-    `population_dir` is listed
-    non-recursively, so this only ever produces configs for whatever single
-    task's population files happen to be sitting directly in that directory.
+    Runs the same 12-config OPRO sub-sweep (3 sampling_strategies x 4
+    mutators, noise=0, one fixed optimizer_llm per task -- see
+    get_args_for_roll_outs) against each curated initial population file, so
+    population_dynamics results are directly comparable to general_rollout's:
+    the only thing that varies is where OPRO starts from.
+
+    Directory discovery: first tries `<population_dir>/<task_name>/budget_*/`
+    (the iteration-budget curation notebook's layout), unioning every
+    budget's *.json files into one sweep -- so budgets-within-a-task and
+    tasks-within-a-job (via experiments.py's existing per-task_name loop)
+    both merge into as few experiments.py invocations as possible. Falls
+    back to listing `population_dir` directly (today's exact behavior) if no
+    budget_* subdirs are found there, e.g. curated_initial_populations_v2/
+    <task>/ and curated_perturbation_populations/, which hold *.json files
+    directly with no per-task subfolder.
     """
     pruning_strategy = 'lowest_scoring'
-    max_population_sizes = [15]
-    sampling_strategies = ['wheel', 'tournament']
+    max_population_size = 15
+    sampling_strategies = ['highest_scoring', 'tournament', 'wheel']
     mutators = ['kincontext', 'DE', 'GA', 'GEPA']
-    noises = [0, 1]
+    noise = 0
     sampling_prob = 0.5
-    n = 3
 
-    optimizer_llms = [
-        'openai/gpt-oss-120b',
-        'gemini-3.5-flash',
-        'gemini-2.5-flash',
-    ]
+    real_task_name, benchmark = POP_DYNAMICS_TASK_MAP.get(
+        task_name,
+        (task_name, 'drop'),
+    )
+    optimizer_llm = get_default_optimizer_llms(real_task_name)[0]
+    device_profile = get_device_profile(real_task_name)
 
-    device_profile = get_device_profile(task_name)
+    budget_dirs = sorted(
+        glob.glob(os.path.join(population_dir, task_name, 'budget_*/')),
+    )
+    search_dirs = budget_dirs or [population_dir]
 
     init_population_files = sorted(
-        [
-            os.path.join(population_dir, f)
-            for f in os.listdir(population_dir)
-            if f.endswith('.json')
-        ],
+        os.path.join(d, f)
+        for d in search_dirs
+        for f in os.listdir(d)
+        if f.endswith('.json')
     )
 
     experiments_to_run = []
 
-    for pop_size, strategy, mutator, noise, pop_path, llm in itertools.product(
-        max_population_sizes,
+    for strategy, mutator, pop_path in itertools.product(
         sampling_strategies,
         mutators,
-        noises,
         init_population_files,
-        optimizer_llms,
     ):
-        benchmark = 'drop'
+        n = get_kincontext_n(real_task_name) if mutator == 'kincontext' else 5
 
         config = {
             'optimizer_name': 'opro',
-            'optimizer_llm': llm,
-            'task_name': task_name,
+            'optimizer_llm': optimizer_llm,
+            'task_name': real_task_name,
             'pruning_strategy': pruning_strategy,
-            'max_population_size': pop_size,
+            'max_population_size': max_population_size,
             'sampling_strategy_name': strategy,
             'mutator': mutator,
             'noise': noise,
