@@ -216,9 +216,31 @@ async def _resumable_run(
     reimplementing run_evolution()'s setup -- program/evaluator file prep,
     controller construction, asyncio.run -- by hand) means we only add the
     one missing lookup and let run_evolution() keep doing everything else.
+
+    NOTE(MS): also caps `iterations` at the original target total on
+    resume. optimize() calls this with the same `num_iter` on every
+    invocation (fresh launch or resume alike), but controller.run() always
+    treats `iterations` as "run this many MORE steps from wherever the
+    checkpoint resumes" -- it never subtracts what the checkpoint already
+    completed. Left unpatched, every job restart (crash/requeue/manual
+    relaunch) tacks a full extra `num_iter` batch on top of the last one
+    instead of topping up to it. Subtracting the checkpoint's
+    `last_iteration + 1` (matching controller.run()'s own start_iteration
+    formula) fixes that; when that's already >= the target we skip calling
+    _original_oe_run entirely rather than pass iterations=0 through --
+    controller.run() does `iterations or self.config.max_iterations`, and
+    0 is falsy in Python, so 0 would silently fall back to
+    config.max_iterations (10000) instead of running zero more steps.
     """
     if checkpoint_path is None:
         checkpoint_path = _find_latest_checkpoint(self.output_dir)
+
+    if checkpoint_path is not None and iterations is not None:
+        self._load_checkpoint(checkpoint_path)
+        iterations = iterations - (self.database.last_iteration + 1)
+        if iterations <= 0:
+            return None
+
     return await _original_oe_run(
         self,
         iterations=iterations,
