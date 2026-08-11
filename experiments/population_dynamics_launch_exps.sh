@@ -24,18 +24,18 @@ POP_DIR=/scratch/mansisak/llm_optimizer/curated_initial_populations_by_iter_budg
 # Job A: shared-vLLM batch -- same task grouping as launch_exps.sh's Job A
 # (harmbench's abliterated optimizer + classifier, prompt's shared model),
 # just split across prompt's two benchmarks as separate task_name values.
-sbatch --time=2-00:00:00 --nodes=1 --cpus-per-task=64 --mem=100000M --gres=gpu:1 \
+sbatch --time=0-12:00:00 --nodes=1 --cpus-per-task=64 --mem=100000M --gres=gpu:3 \
   --job-name=pop_dyn_shared_llm_batch multi_node_ray_launch_exps.sh population_dynamics \
   --task_name harmbench prompt_drop prompt_gsm8k --population_dir $POP_DIR --num_iter 50
 
 # Job B: CPU-only -- gemini-3.1-pro optimizer, API-hosted, no local model at all.
-sbatch --time=2-00:00:00 --nodes=1 --cpus-per-task=64 --mem=300000M --gres=gpu:0 \
+sbatch --time=0-12:00:00 --nodes=1 --cpus-per-task=64 --mem=300000M --gres=gpu:0 \
   --job-name=pop_dyn_cpu_only_batch multi_node_ray_launch_exps.sh population_dynamics \
   --task_name cantbelate cloudcast --population_dir $POP_DIR --num_iter 50
 
 # Job C: kernelbench -- real GPU per task; gpu:4 is a concurrency dial (how
 # many kernelbench tasks run at once), not a shared-model count -- adjust to
 # taste.
-sbatch --time=2-00:00:00 --nodes=1 --cpus-per-task=64 --mem=300000M --gres=gpu:4 \
+sbatch --time=0-12:00:00 --nodes=1 --cpus-per-task=64 --mem=300000M --gres=gpu:4 \
   --job-name=pop_dyn_kernelbench_batch multi_node_ray_launch_exps.sh population_dynamics \
   --task_name kernelbench --population_dir $POP_DIR --num_iter 50

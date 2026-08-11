@@ -22,9 +22,9 @@ from llm_optimizer.utils import prompt_lm
 # zero local GPU; kernelbench compiles and executes the candidate kernel on
 # real hardware and needs a dedicated GPU per task.
 TASK_DEVICE_PROFILES: dict[str, dict[str, int]] = {
-    'kernelbench': {'num_gpus': 1, 'num_cpus': 4},
+    'kernelbench': {'num_gpus': 1, 'num_cpus': 1},
 }
-DEFAULT_DEVICE_PROFILE: dict[str, int] = {'num_gpus': 0, 'num_cpus': 4}
+DEFAULT_DEVICE_PROFILE: dict[str, int] = {'num_gpus': 0, 'num_cpus': 1}
 
 
 def get_device_profile(task_name: str) -> dict[str, int]:
