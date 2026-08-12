@@ -54,7 +54,7 @@ def get_kincontext_n(task_name: str) -> int:
 def get_args_for_roll_outs(
     task_name: str,
     num_iter: int,
-    inference_model_name: str | None = None,
+    inference_model_name: str = 'google/gemma-4-E4B-it',
     optimizer_llms: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Generic roll outs experiment.
@@ -98,10 +98,9 @@ def get_args_for_roll_outs(
             'noise': noise,
             'num_iter': num_iter,
             'benchmark': benchmark,
+            'inference_model_name': inference_model_name,
             **device_profile,
         }
-        if task_name == 'harmbench' and inference_model_name:
-            base_config['inference_model_name'] = inference_model_name
         if task_name == 'kernelbench':
             base_config['backend'] = 'cuda'
             base_config['problem_id'] = 1
@@ -238,7 +237,7 @@ def get_args_for_pop_dynamics(
     directly with no per-task subfolder.
     """
     pruning_strategy = 'lowest_scoring'
-    max_population_size = 15
+    max_population_size = 20
     sampling_strategies = ['highest_scoring', 'tournament', 'wheel']
     mutators = ['kincontext', 'DE', 'GA', 'GEPA']
     noise = 0

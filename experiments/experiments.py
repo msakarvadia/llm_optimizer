@@ -170,10 +170,10 @@ if __name__ == '__main__':
     parser.add_argument(
         '--inference_model_name',
         type=str,
-        default=None,
+        default='google/gemma-4-E4B-it',
         help=(
-            'general_rollout/harmbench only: override the target/inference '
-            'model.'
+            'general_rollout/harmbench+prompt only: the target/inference '
+            'model. Defaults to the same model main.py itself defaults to.'
         ),
     )
     args = parser.parse_args()
