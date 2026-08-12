@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 
 import torch
@@ -277,11 +278,40 @@ if __name__ == '__main__':
     args_dict.pop('optimizer_base_url_override', None)
     args_dict.pop('inference_base_url_override', None)
     args_dict.pop('classifier_base_url_override', None)
+    # init_population_path is handled separately below -- flattening it
+    # into config_dir (like every other arg) made that single path
+    # component exceed the filesystem's per-component NAME_MAX (255
+    # bytes) once population dirs grew long absolute paths.
+    init_population_path = args_dict.pop('init_population_path')
     clean_values = [
         str(val).replace('.', '').replace('/', '')
         for val in args_dict.values()
     ]
-    experiment_dir = f'{args.experiment_dir}/' + '_'.join(clean_values)
+    config_dir = '_'.join(clean_values)
+
+    # Mirror init_population_path's own directory structure (e.g.
+    # curated_initial_populations_tournament_rejection/<task>/budget_N/
+    # <file>.json) as real subdirectories instead of flattening it into
+    # config_dir -- keeps every path component short and preserves the
+    # curated_*/... structure as informative directory names. Scrub
+    # everything through '.../llm_optimizer/' so the on-disk repo
+    # location itself never leaks into experiment_dir; keep the
+    # curated_*/... tail since it names the curation strategy.
+    pop_path_parts = init_population_path.split(os.sep)
+    if 'llm_optimizer' in pop_path_parts:
+        last_llm_optimizer_idx = len(pop_path_parts) - pop_path_parts[
+            ::-1
+        ].index('llm_optimizer')
+        pop_path_parts = pop_path_parts[last_llm_optimizer_idx:]
+    pop_path_parts = [part for part in pop_path_parts if part]
+    if pop_path_parts:
+        pop_path_parts[-1] = os.path.splitext(pop_path_parts[-1])[0]
+
+    experiment_dir = os.path.join(
+        args.experiment_dir,
+        config_dir,
+        *pop_path_parts,
+    )
 
     # TODO(MS): wrap below logic into a run_experiment function
     # we need to dynamically count how many GPUs each experiment needs
@@ -444,6 +474,20 @@ if __name__ == '__main__':
         truncate_generated_solution=args.truncate_generated_solution,
         init_population_path=args.init_population_path,
     )
+
+    # Dump resolved args into experiment_dir for later inspection;
+    # api_key/inference_api_key excluded since they can hold real secrets.
+    args_manifest = {
+        key: val
+        for key, val in vars(args).items()
+        if key not in ('api_key', 'inference_api_key')
+    }
+    with open(
+        os.path.join(experiment_dir, 'experiment_args.json'),
+        'w',
+        encoding='utf-8',
+    ) as f:
+        json.dump(args_manifest, f, indent=2, sort_keys=True)
 
     # optimize
     llm_optimizer.optimize(num_iter=args.num_iter)
