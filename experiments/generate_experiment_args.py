@@ -21,13 +21,16 @@ from llm_optimizer.utils import prompt_lm
 # classifier calls through a shared server (or an API-hosted model) and need
 # zero local GPU; kernelbench compiles and executes the candidate kernel on
 # real hardware and needs a dedicated GPU per task.
-TASK_DEVICE_PROFILES: dict[str, dict[str, int]] = {
+TASK_DEVICE_PROFILES: dict[str, dict[str, int | float]] = {
     'kernelbench': {'num_gpus': 1, 'num_cpus': 1},
 }
-DEFAULT_DEVICE_PROFILE: dict[str, int] = {'num_gpus': 0, 'num_cpus': 1}
+DEFAULT_DEVICE_PROFILE: dict[str, int | float] = {
+    'num_gpus': 0,
+    'num_cpus': 0.25,
+}
 
 
-def get_device_profile(task_name: str) -> dict[str, int]:
+def get_device_profile(task_name: str) -> dict[str, int | float]:
     """Resolve local Ray-scheduling resources for a task subprocess."""
     return TASK_DEVICE_PROFILES.get(task_name, DEFAULT_DEVICE_PROFILE)
 
@@ -54,7 +57,7 @@ def get_kincontext_n(task_name: str) -> int:
 def get_args_for_roll_outs(
     task_name: str,
     num_iter: int,
-    inference_model_name: str = 'google/gemma-4-E4B-it',
+    inference_model_names: list[str] | None = None,
     optimizer_llms: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Generic roll outs experiment.
@@ -65,7 +68,7 @@ def get_args_for_roll_outs(
     sampling-strategy x mutator sub-sweep (12 combos), 'gepa' and
     'open_evolve' each contribute exactly one config apiece since neither
     takes a mutator/sampling_strategy_name, for 14 combos total per
-    (benchmark, optimizer_llm) pair.
+    (benchmark, optimizer_llm, inference_model_name) triple.
     """
     # --- Define Hyperparameter Parameter Search Space
     pruning_strategy = 'lowest_scoring'
@@ -79,6 +82,7 @@ def get_args_for_roll_outs(
     noise = 0
 
     optimizer_llms = optimizer_llms or get_default_optimizer_llms(task_name)
+    inference_model_names = inference_model_names or ['google/gemma-4-E4B-it']
     device_profile = get_device_profile(task_name)
 
     # Handle multiple benchmarks for prompt optimization
@@ -86,9 +90,10 @@ def get_args_for_roll_outs(
 
     experiments_to_run = []
 
-    for benchmark, optimizer_llm in itertools.product(
+    for benchmark, optimizer_llm, inference_model_name in itertools.product(
         benchmarks,
         optimizer_llms,
+        inference_model_names,
     ):
         base_config: dict[str, Any] = {
             'task_name': task_name,

@@ -170,10 +170,12 @@ if __name__ == '__main__':
     parser.add_argument(
         '--inference_model_name',
         type=str,
-        default='google/gemma-4-E4B-it',
+        nargs='+',
+        default=['google/gemma-4-E4B-it'],
         help=(
             'general_rollout/harmbench+prompt only: the target/inference '
-            'model. Defaults to the same model main.py itself defaults to.'
+            'model(s). Defaults to the same model main.py itself defaults '
+            'to.'
         ),
     )
     args = parser.parse_args()
@@ -219,7 +221,7 @@ if __name__ == '__main__':
                 get_args_for_roll_outs(
                     task_name=task_name,
                     num_iter=args.num_iter,
-                    inference_model_name=args.inference_model_name,
+                    inference_model_names=args.inference_model_name,
                     optimizer_llms=args.optimizer_llm,
                 ),
             )
