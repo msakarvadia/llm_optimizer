@@ -195,6 +195,8 @@ if __name__ == '__main__':
             'mlabonne/NeuralDaredevil-8B-abliterated',
             'google/gemma-4-E4B-it',
             'meta-llama/Llama-3.2-1B-Instruct',
+            'allenai/OLMo-2-0425-1B-SFT',
+            'allenai/OLMo-2-0425-1B-DPO',
         ],
         help="""Name of llm to do inference w/ to test prompt optimization
         for example, on harmbench, this model is queried w/ adversarial
