@@ -28,7 +28,7 @@
 # Job A: shared-vLLM batch -- OLMo 2 1B SFT + DPO checkpoints shared
 # across harmbench and prompt; harmbench also needs the abliterated
 # optimizer + classifier -> 4 unique local models -> gpu:4
-sbatch --time=0-12:00:00 --nodes=1 --cpus-per-task=64 --mem=300000M --gres=gpu:4 \
+sbatch --time=0-05:00:00 --nodes=1 --cpus-per-task=64 --mem=300000M --gres=gpu:4 \
   --job-name=shared_llm_batch multi_node_ray_launch_exps.sh general_rollout \
   --task_name harmbench prompt --num_iter 50 \
   --inference_model_name allenai/OLMo-2-0425-1B-SFT allenai/OLMo-2-0425-1B-DPO
