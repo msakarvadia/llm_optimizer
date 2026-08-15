@@ -154,6 +154,8 @@ if __name__ == '__main__':
         choices=[
             'gemini-2.5-flash',
             'gemini-3.5-flash',
+            'gemini-3.6-flash',
+            'gemini-3.7-flash',
         ],
         help="""Opro specific: LLM used as a second opinion on the
         diversity check when cosine similarity (see --sim_thresh) flags
