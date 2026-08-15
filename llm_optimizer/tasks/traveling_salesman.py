@@ -97,7 +97,7 @@ class TravelingSalesman(Task):
             score = -math.inf
             error_dict = {'error': error}
 
-        return score, error_dict
+        return score, error_dict, None
 
 
 def evaluate_distance(
