@@ -270,7 +270,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--num_points',
         type=int,
-        default=10,
+        default=100,
         help="""# points on the path.""",
     )
     parser.add_argument(
