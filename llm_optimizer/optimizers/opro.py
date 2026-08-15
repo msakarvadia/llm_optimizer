@@ -412,15 +412,17 @@ class SolutionBank:
                 sub_dict['solution'] for sub_dict in self.bank.values()
             ]
             active_pop.remove(solution)
-            too_similar, closest_solution = self.eval_cosine_sim(
-                active_pop,
-                solution,
+            too_similar, closest_solution, max_similarity = (
+                self.eval_cosine_sim(active_pop, solution)
             )
+            self.bank[next_iter]['max_similarity'] = max_similarity
+            self.bank[next_iter]['llm_judge_rejected'] = None
             if too_similar and self.llm_judge_client:
                 too_similar, judging_tokens = self.llm_judge_sim(
                     closest_solution,
                     solution,
                 )
+                self.bank[next_iter]['llm_judge_rejected'] = too_similar
                 # NOTE(MS): bank/never_prune_bank[next_iter] are aliased,
                 # so this already updates both -- don't double-apply.
                 self.bank[next_iter]['cumulative_tokens_spent'] += (
@@ -436,17 +438,14 @@ class SolutionBank:
         self,
         active_solution_pool: list[str],
         solution: str,
-    ) -> tuple[bool, str | None]:
+    ) -> tuple[bool, str | None, float | None]:
         """Evaluate if a new solution is diverse enough to enter active pool.
 
-        Returns (too_similar, closest_solution): closest_solution is the
-        active-pool entry with the highest cosine similarity to solution
-        (None if the pool is empty or nothing crossed self.sim_thresh) --
-        used by llm_judge_sim as the specific comparison point, rather
-        than re-deriving it against the whole pool a second time.
+        Returns (too_similar, closest_solution, max_similarity); all None
+        or False if the pool is empty.
         """
         if not active_solution_pool:
-            return False, None
+            return False, None, None
 
         # NOTE(MS): no caching -- embeds the full active pool + candidate
         # in a single batched call every time this runs.
@@ -463,7 +462,7 @@ class SolutionBank:
         closest_solution = (
             active_solution_pool[best_idx] if too_similar else None
         )
-        return too_similar, closest_solution
+        return too_similar, closest_solution, sim
 
     def llm_judge_sim(
         self,
