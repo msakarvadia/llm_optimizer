@@ -6,6 +6,7 @@ import math
 from typing import Any
 
 import numpy as np
+from ortools.sat.python import cp_model
 
 from llm_optimizer.tasks.base_task import Task
 
@@ -64,7 +65,7 @@ class TravelingSalesman(Task):
             self.y,
             self.num_points,
             self.num_decimals,
-            'dp',
+            'ortools_exact',
         )
         print(f'Minimum distance of solution: {_min_dis}')
         self.gt_sol_str = ','.join([str(i) for i in self.gt_sol])
@@ -207,6 +208,55 @@ def solve_tsp(
                     max_cur_index = min_cur_index
             gt_sol = gt_sol[:max_cur_index] + [max_p] + gt_sol[max_cur_index:]
             remaining_points.remove(max_p)
+        min_dis = evaluate_distance(x, y, gt_sol, num_decimals)
+        return gt_sol, min_dis
+    elif starting_algorithm == 'ortools_exact':
+        scale = 10**num_decimals if num_decimals > 0 else 1
+        dist = [
+            [
+                round(
+                    scale
+                    * float(
+                        np.sqrt((x[i] - x[j]) ** 2 + (y[i] - y[j]) ** 2),
+                    ),
+                )
+                for j in range(num_points)
+            ]
+            for i in range(num_points)
+        ]
+
+        model = cp_model.CpModel()
+        lits = {}
+        arcs = []
+        for i in range(num_points):
+            for j in range(num_points):
+                if i == j:
+                    continue
+                lit = model.NewBoolVar(f'x_{i}_{j}')
+                lits[i, j] = lit
+                arcs.append((i, j, lit))
+        model.AddCircuit(arcs)
+        model.Minimize(sum(dist[i][j] * lits[i, j] for i, j in lits))
+
+        solver = cp_model.CpSolver()
+        solver.parameters.max_time_in_seconds = 120
+        solver.parameters.num_search_workers = 8
+        status = solver.Solve(model)
+        if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+            raise RuntimeError(
+                'ortools failed to find a TSP solution: '
+                f'status={solver.StatusName(status)}',
+            )
+
+        gt_sol = [0]
+        while len(gt_sol) < num_points:
+            cur = gt_sol[-1]
+            nxt = next(
+                j
+                for j in range(num_points)
+                if j != cur and solver.Value(lits[cur, j])
+            )
+            gt_sol.append(nxt)
         min_dis = evaluate_distance(x, y, gt_sol, num_decimals)
         return gt_sol, min_dis
 
