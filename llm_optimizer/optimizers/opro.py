@@ -11,8 +11,15 @@ import warnings
 from typing import Any
 
 import numpy as np
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
 
 from llm_optimizer.optimizers.base_optimizer import Optimizer
+from llm_optimizer.optimizers.judge_prompts import CODE_TASK_NAMES
+from llm_optimizer.optimizers.judge_prompts import JUDGE_SYSTEM_MSG
+from llm_optimizer.optimizers.judge_prompts import JUDGE_USER_MSG
+from llm_optimizer.optimizers.judge_prompts import NOVELTY_SYSTEM_MSG
+from llm_optimizer.optimizers.judge_prompts import NOVELTY_USER_MSG
 from llm_optimizer.optimizers.llm_mutator_library.differential_evolution import (  # noqa
     DEMutator,
 )
@@ -24,6 +31,8 @@ from llm_optimizer.optimizers.llm_mutator_library.k_in_context import (
     KInContextMutator,
 )
 from llm_optimizer.tasks.base_task import Task
+from llm_optimizer.utils import build_openai_client
+from llm_optimizer.utils import prompt_lm
 
 
 class OPROOptimizer(Optimizer):
@@ -97,6 +106,13 @@ class OPROOptimizer(Optimizer):
             max_population_size=self.max_population_size,
             pruning_strategy=self.pruning_strategy,
             failed_score=getattr(task, 'failed_score', None),
+            embed_model=kwargs.get('embed_model'),
+            sim_thresh=kwargs.get('sim_thresh', 0.0),
+            llm_judge=kwargs.get('llm_judge'),
+            llm_judge_base_url=kwargs.get('llm_judge_base_url'),
+            llm_judge_api_key=kwargs.get('llm_judge_api_key'),
+            task=task,
+            task_name=kwargs.get('task_name'),
         )
         self.solution_bank.read_from_checkpoint(self.experiment_dir)
 
@@ -180,8 +196,16 @@ class SolutionBank:
         max_population_size: int,
         pruning_strategy: str,
         failed_score: Any | None = None,
+        **kwargs: Any,
     ) -> None:
-        """Initialize bank to store solution/score pairs."""
+        """Initialize bank to store solution/score pairs.
+
+        kwargs (all optional, diversity-check specific; see
+        add_solution_score_pair): embed_model, sim_thresh, llm_judge,
+        llm_judge_base_url, llm_judge_api_key, task, task_name. Kept out
+        of the named signature to stay under the 5-arg lint limit --
+        GEPA/open_evolve construct SolutionBank without any of these.
+        """
         # dict[optimizaiton_iteration (int) :
         #          {'solution':solution, 'score':score, 'metadata':...}]
         self.bank: dict[int, dict[str, Any]] = {}
@@ -199,13 +223,38 @@ class SolutionBank:
         # across every candidate ever logged (add_solution_score_pair
         # only -- upsert_solution_score_pair's update-existing-entry path
         # doesn't touch this, since a later re-evaluation shouldn't move
-        # when in the token budget that candidate was originally created).
-        # Stamped onto each new entry as 'cumulative_tokens_spent' so a
-        # tokens-spent-vs-score curve can be read directly off the
-        # checkpoint JSON (ordered by iteration key) with no
-        # post-processing. Restored from the checkpoint on read, not
-        # itself persisted as a separate field.
         self.cumulative_tokens_spent = 0
+
+        # NOTE(MS): diversity check (see add_solution_score_pair) -- max
+        # cosine similarity (embedding space) a new candidate may have to
+        # any active-pool solution before it's rejected. sim_thresh <= 0
+        # disables the check entirely, so embedding_model/llm_judge_client
+        # are only ever loaded (CPU, can be multi-GB for Qodo-Embed) when
+        # actually needed.
+        self.sim_thresh = kwargs.get('sim_thresh', 0.0)
+        # NOTE(MS): Any -- these hold either None or a loaded
+        # SentenceTransformer/OpenAI/Task instance depending on
+        # sim_thresh/llm_judge, not a plain string.
+        self.embedding_model: Any = None
+        self.llm_judge_client: Any = None
+        self.llm_judge_model_name = kwargs.get('llm_judge', '')
+        # NOTE(MS): task/task_name feed llm_judge_sim's prompt -- task for
+        # task_description/solution_description/direction/metric (non-code
+        # tasks), task_name to pick the code-task judge template (see
+        # judge_prompts.CODE_TASK_NAMES). Not on the Task base class, so
+        # threaded through separately from OPROOptimizer.
+        self.task: Any = kwargs.get('task')
+        self.task_name = kwargs.get('task_name')
+        if self.sim_thresh > 0:
+            self.embedding_model = SentenceTransformer(
+                kwargs.get('embed_model', ''),
+                device='cpu',
+            )
+            if self.llm_judge_model_name:
+                self.llm_judge_client = build_openai_client(
+                    kwargs.get('llm_judge_api_key', ''),
+                    kwargs.get('llm_judge_base_url', ''),
+                )
 
     def read_from_checkpoint(self, path: str) -> None:
         """Read current version of the solution banks."""
@@ -355,7 +404,120 @@ class SolutionBank:
         self.bank[next_iter]['eval_count'] = 1
 
         self.never_prune_bank[next_iter] = self.bank[next_iter]
+
+        # this is where self.bank[next_iter] gets popped back out if it
+        # wasn't diverse enough compared to the current active pool
+        if self.sim_thresh > 0:
+            active_pop = [
+                sub_dict['solution'] for sub_dict in self.bank.values()
+            ]
+            active_pop.remove(solution)
+            too_similar, closest_solution = self.eval_cosine_sim(
+                active_pop,
+                solution,
+            )
+            if too_similar and self.llm_judge_client:
+                too_similar, judging_tokens = self.llm_judge_sim(
+                    closest_solution,
+                    solution,
+                )
+                # NOTE(MS): bank/never_prune_bank[next_iter] are aliased,
+                # so this already updates both -- don't double-apply.
+                self.bank[next_iter]['cumulative_tokens_spent'] += (
+                    judging_tokens
+                )
+                self.bank[next_iter]['llm_judge_tokens'] = judging_tokens
+                self.cumulative_tokens_spent += judging_tokens
+            if too_similar:
+                self.bank.pop(next_iter)
         self.never_prune_bank[next_iter]['active_population'] = list(self.bank)
+
+    def eval_cosine_sim(
+        self,
+        active_solution_pool: list[str],
+        solution: str,
+    ) -> tuple[bool, str | None]:
+        """Evaluate if a new solution is diverse enough to enter active pool.
+
+        Returns (too_similar, closest_solution): closest_solution is the
+        active-pool entry with the highest cosine similarity to solution
+        (None if the pool is empty or nothing crossed self.sim_thresh) --
+        used by llm_judge_sim as the specific comparison point, rather
+        than re-deriving it against the whole pool a second time.
+        """
+        if not active_solution_pool:
+            return False, None
+
+        # NOTE(MS): no caching -- embeds the full active pool + candidate
+        # in a single batched call every time this runs.
+        embeddings = self.embedding_model.encode(
+            [*active_solution_pool, solution],
+            convert_to_numpy=True,
+        )
+        pool_vecs, solution_vec = embeddings[:-1], embeddings[-1:]
+        sims = cosine_similarity(solution_vec, pool_vecs)[0]
+        best_idx = int(sims.argmax())
+        sim = float(sims[best_idx])
+
+        too_similar = sim > self.sim_thresh
+        closest_solution = (
+            active_solution_pool[best_idx] if too_similar else None
+        )
+        return too_similar, closest_solution
+
+    def llm_judge_sim(
+        self,
+        closest_solution: str | None,
+        solution: str,
+    ) -> tuple[bool, int]:
+        """Evaluate if a new solution is diverse enough to enter active pool.
+
+        Second opinion on eval_cosine_sim's verdict: prompts
+        self.llm_judge_client to compare solution against the single
+        closest active-pool match (closest_solution) it flagged.
+
+        Template + NOVEL/NOT_NOVEL vocabulary follow ShinkaEvolve's
+        novelty judge: https://github.com/SakanaAI/ShinkaEvolve/blob/main/shinka/prompts/prompts_novelty.py
+        Code tasks (judge_prompts.CODE_TASK_NAMES) use that template
+        verbatim; other tasks use a task-grounded variant of it.
+        """
+        if self.task_name in CODE_TASK_NAMES:
+            system_msg = NOVELTY_SYSTEM_MSG
+            user_msg = NOVELTY_USER_MSG.format(
+                language='python',
+                existing_code=closest_solution,
+                proposed_code=solution,
+            )
+        else:
+            system_msg = JUDGE_SYSTEM_MSG.format(
+                solution_description=self.task.solution_description,
+                task_description=self.task.task_description,
+                direction=self.task.direction,
+                metric=self.task.metric,
+            )
+            user_msg = JUDGE_USER_MSG.format(
+                existing_solution=closest_solution,
+                proposed_solution=solution,
+            )
+
+        try:
+            response, token_usage = prompt_lm(
+                self.llm_judge_client,
+                user_msg,
+                model_name=self.llm_judge_model_name,
+                system_msg=system_msg,
+            )
+        except Exception:
+            # NOTE(MS): matching ShinkaEvolve's novelty judge --
+            # a broken/errored judge call shouldn't block an otherwise-
+            # fine candidate, so treat it as novel/diverse
+            return False, 0
+
+        verdict = response.strip().upper()
+        is_novel = verdict.startswith('NOVEL') or verdict.startswith(
+            '**NOVEL**',
+        )
+        return not is_novel, token_usage['total_tokens']
 
     def upsert_solution_score_pair(
         self,
@@ -380,10 +542,6 @@ class SolutionBank:
         already stored, rather than replaced, so the row always reflects
         total tokens/time spent across every evaluation of this candidate
         to date. Non-numeric fields (e.g. a boolean flag) are overwritten.
-
-        NOTE(MS): O(n) scan over never_prune_bank per call -- fine at the
-        scale of a single optimization run's candidate count, but would
-        need an index (e.g. dict[str, int]) if that stops being true.
         """
         existing_iter = next(
             (

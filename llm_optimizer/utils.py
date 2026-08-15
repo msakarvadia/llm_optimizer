@@ -11,6 +11,7 @@ import subprocess
 import time
 from typing import Any
 
+import httpx
 import numpy as np
 import ray
 import requests
@@ -145,12 +146,62 @@ def _extract_token_usage(response: Any) -> dict[str, int]:
     }
 
 
-def prompt_lm(
+def build_openai_client(api_key: str, base_url: str) -> OpenAI:
+    """Build an OpenAI-compatible client for a given base_url.
+
+    Shared by every LLM caller in this repo (mutators, llm_judge, ...) so
+    the proxy-bypass behavior below stays in one place.
+
+    NOTE(MS): work around global proxies specifically for compute nodes --
+    local endpoints (vllm servers) need the cluster's system proxy env
+    vars ignored entirely to be reachable, while external hosts (Google/
+    ANL) need that same proxy respected to be reachable. is_local decides
+    which.
+    """
+    if api_key is None:
+        raise ValueError(
+            'API key not found. Set the appropriate API key environment '
+            'variable (see key_env_name in config.yaml for this model).',
+        )
+
+    is_local = any(
+        addr in base_url
+        for addr in ['localhost', '127.0.0.1', '0.0.0.0', 'alcf.anl.gov']
+    )
+    print(f'DEBUG: base_url={base_url} | is_local={is_local}')
+
+    if is_local:
+        # FORCE bypass: Tell httpx to ignore ALL system
+        # proxy variables entirely
+        custom_http_client = httpx.Client(trust_env=False)
+        print(
+            '--> Local routing: '
+            'Cluster environment proxy bypassed successfully.',
+        )
+    else:
+        # FORCE use: Tell httpx to respect the system
+        # proxy so it can reach ANL / Google
+        custom_http_client = httpx.Client(trust_env=True)
+        print(
+            '--> Remote routing: '
+            'Utilizing global cluster proxy for external connection.',
+        )
+
+    # TODO(MS): make generalizable to other base_urls
+    return OpenAI(
+        api_key=api_key,
+        base_url=base_url,
+        http_client=custom_http_client,  # WORK AROUND FOR GLOBAL PROXIES
+    )
+
+
+def prompt_lm(  # noqa: PLR0913
     client: OpenAI,
     prompt: str,
     model_name: str = 'gemini-3.5-flash',
     max_tokens: int | None = None,
     max_retries: int = 3,
+    system_msg: str = 'You are a helpful assistant.',
 ) -> tuple[str, dict[str, int]]:
     """Standard LLM api inference call.
 
@@ -171,7 +222,7 @@ def prompt_lm(
                 messages=[
                     {
                         'role': 'system',
-                        'content': 'You are a helpful assistant.',
+                        'content': system_msg,
                     },
                     {
                         'role': 'user',

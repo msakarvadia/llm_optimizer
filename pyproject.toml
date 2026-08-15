@@ -195,6 +195,7 @@ required-imports = ["from __future__ import annotations"]
 "*/*_test.py" = ["D10"]
 # long lines here are natural-language LLM prompt templates, not code
 "llm_optimizer/optimizers/llm_mutator_library/*.py" = ["E501"]
+"llm_optimizer/optimizers/judge_prompts.py" = ["E501"]
 "llm_optimizer/tasks/harm_bench.py" = ["E501"]
 "llm_optimizer/tasks/traveling_salesman.py" = ["E501"]
 

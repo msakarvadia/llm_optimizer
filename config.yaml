@@ -16,6 +16,12 @@ allenai/OLMo-2-0425-1B-DPO:
 gemini-3.5-flash:
   key_env_name: "GEMINI_API_KEY"
   base_url: 'https://generativelanguage.googleapis.com/v1beta/openai/'
+gemini-3.6-flash:
+  key_env_name: "GEMINI_API_KEY"
+  base_url: 'https://generativelanguage.googleapis.com/v1beta/openai/'
+gemini-3.7-flash:
+  key_env_name: "GEMINI_API_KEY"
+  base_url: 'https://generativelanguage.googleapis.com/v1beta/openai/'
 gemini-3.1-pro-preview:
   key_env_name: "GEMINI_API_KEY"
   base_url: 'https://generativelanguage.googleapis.com/v1beta/openai/'

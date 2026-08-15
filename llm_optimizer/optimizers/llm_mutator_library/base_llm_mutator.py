@@ -4,10 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-import httpx
-from openai import OpenAI
-
 from llm_optimizer.tasks.base_task import Task
+from llm_optimizer.utils import build_openai_client
 from llm_optimizer.utils import prompt_lm
 
 
@@ -23,43 +21,7 @@ class Mutator:
         self.model_name = model_name
         self.base_url = base_url
         self.api_key = api_key
-        if api_key is None:
-            raise ValueError(
-                'API key not found. Set the MY_API_KEY environment variable.',
-            )
-
-        # NOTE(MS): work around global proxies
-        # specifically for compute nodes
-        # Determine if this specific base_url targets your local hardware
-        is_local = any(
-            addr in base_url
-            for addr in ['localhost', '127.0.0.1', '0.0.0.0', 'alcf.anl.gov']
-        )
-        print(f'DEBUG: base_url={base_url} | is_local={is_local}')
-
-        if is_local:
-            # FORCE bypass: Tell httpx to ignore ALL system
-            # proxy variables entirely
-            custom_http_client = httpx.Client(trust_env=False)
-            print(
-                '--> Local routing: '
-                'Cluster environment proxy bypassed successfully.',
-            )
-        else:
-            # FORCE use: Tell httpx to respect the system
-            # proxy so it can reach ANL / Google
-            custom_http_client = httpx.Client(trust_env=True)
-            print(
-                '--> Remote routing: '
-                'Utilizing global cluster proxy for external connection.',
-            )
-
-        # TODO(MS): make generalizable to other base_urls
-        self.client = OpenAI(
-            api_key=self.api_key,
-            base_url=self.base_url,
-            http_client=custom_http_client,  # WORK AROUND FOR GLOBAL PROXIES
-        )
+        self.client = build_openai_client(api_key, base_url)
 
     def get_meta_prompt(
         self,

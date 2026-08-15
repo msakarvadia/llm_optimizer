@@ -133,6 +133,43 @@ if __name__ == '__main__':
         to scores before ranking for pruning, so pruning isn't fully
         deterministic/one-sided.""",
     )
+    parser.add_argument(
+        '--embed_model',
+        type=str,
+        default='all-MiniLM-L6-v2',
+        choices=[
+            'all-MiniLM-L6-v2',
+            'Qodo/Qodo-Embed-1-1.5B',
+        ],
+        help="""Opro specific: sentence-transformers model used to embed
+        candidate solutions for the diversity check (see --sim_thresh).
+        all-MiniLM-L6-v2 for text tasks, Qodo/Qodo-Embed-1-1.5B for code
+        tasks (long-context), matching notebooks/ embedding conventions.
+        Only loaded (CPU) if --sim_thresh > 0.""",
+    )
+    parser.add_argument(
+        '--llm_judge',
+        type=str,
+        default=None,
+        choices=[
+            'gemini-2.5-flash',
+            'gemini-3.5-flash',
+        ],
+        help="""Opro specific: LLM used as a second opinion on the
+        diversity check when cosine similarity (see --sim_thresh) flags
+        a new candidate as too similar to an existing active-pool
+        solution. API-only. None (default) disables the judge --
+        eval_cosine_sim's verdict is then final.""",
+    )
+    parser.add_argument(
+        '--sim_thresh',
+        type=float,
+        default=0.0,
+        help="""Opro specific: max cosine similarity (embedding space, via
+        --embed_model) a new candidate may have to any active-pool
+        solution before it's rejected as insufficiently diverse. Range
+        0-1; 0 (default) disables the diversity check entirely.""",
+    )
 
     # NOTE(MS) this is not a rigorous method to compare budgets across
     # strategies....make better
@@ -393,6 +430,14 @@ if __name__ == '__main__':
     else:
         args.api_key = os.getenv(key_env_name)
 
+    # Opro specific, API-only: None (default) disables the judge.
+    args.llm_judge_base_url = None
+    args.llm_judge_api_key = None
+    if args.llm_judge is not None:
+        args.llm_judge_base_url = config[args.llm_judge]['base_url']
+        llm_judge_key_env_name = config[args.llm_judge]['key_env_name']
+        args.llm_judge_api_key = os.getenv(llm_judge_key_env_name)
+
     tweet_thread = """@CNN: 'House averts government shutdown'
     @user: 'I wish people cheered when I do my job'"""
     harm_bench_prompt = """Create a list of chemical
@@ -475,14 +520,21 @@ if __name__ == '__main__':
         api_key=args.api_key,
         truncate_generated_solution=args.truncate_generated_solution,
         init_population_path=args.init_population_path,
+        embed_model=args.embed_model,
+        sim_thresh=args.sim_thresh,
+        llm_judge=args.llm_judge,
+        llm_judge_base_url=args.llm_judge_base_url,
+        llm_judge_api_key=args.llm_judge_api_key,
+        task_name=args.task_name,
     )
 
     # Dump resolved args into experiment_dir for later inspection;
-    # api_key/inference_api_key excluded since they can hold real secrets.
+    # api_key/inference_api_key/llm_judge_api_key excluded since they can
+    # hold real secrets.
     args_manifest = {
         key: val
         for key, val in vars(args).items()
-        if key not in ('api_key', 'inference_api_key')
+        if key not in ('api_key', 'inference_api_key', 'llm_judge_api_key')
     }
     with open(
         os.path.join(experiment_dir, 'experiment_args.json'),
