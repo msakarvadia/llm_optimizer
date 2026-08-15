@@ -55,6 +55,11 @@ dependencies = [
     "ipykernel",
     "seaborn",
     "globus_sdk",
+    "ortools>=9.15.6755",
+    "codespell",
+    "mypy",
+    "pre-commit",
+    "ruff>=0.2.0",
 ]
 
 [project.urls]
@@ -191,6 +196,7 @@ required-imports = ["from __future__ import annotations"]
 # long lines here are natural-language LLM prompt templates, not code
 "llm_optimizer/optimizers/llm_mutator_library/*.py" = ["E501"]
 "llm_optimizer/tasks/harm_bench.py" = ["E501"]
+"llm_optimizer/tasks/traveling_salesman.py" = ["E501"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
