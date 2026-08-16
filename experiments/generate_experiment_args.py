@@ -43,8 +43,21 @@ def get_default_optimizer_llms(task_name: str) -> list[str]:
     if task_name == 'harmbench':
         return ['mlabonne/NeuralDaredevil-8B-abliterated']
     if task_name == 'prompt':
-        return ['gemini-3.5-flash']
-    return ['gemini-3.1-pro-preview']
+        return ['gemini-3.6-flash']
+    # return ['gemini-3.1-pro-preview']
+    return ['gemini-3.7-flash']
+
+
+def get_default_inference_model_names(task_name: str) -> list[str]:
+    """Resolve the default inference_model_name(s) for a task_name.
+
+    Only used when the caller doesn't explicitly pass `inference_model_names`
+    """
+    if task_name == 'harmbench':
+        return ['allenai/OLMo-2-0425-1B-DPO']
+    if task_name == 'prompt':
+        return ['meta-llama/Llama-3.2-1B-Instruct']
+    return ['google/gemma-4-E4B-it']
 
 
 def get_kincontext_n(task_name: str) -> int:
@@ -62,27 +75,28 @@ def get_args_for_roll_outs(
 ) -> list[dict[str, Any]]:
     """Generic roll outs experiment.
 
-    Grid merged in from the former get_args_for_long_run_cloud (the two
-    were redundant): fixed pruning strategy/pop size/noise, 3 sampling
-    strategies, and all 3 optimizer frameworks -- 'opro' gets the full
-    sampling-strategy x mutator sub-sweep (12 combos), 'gepa' and
-    'open_evolve' each contribute exactly one config apiece since neither
-    takes a mutator/sampling_strategy_name, for 14 combos total per
+    'opro' gets the full sampling-strategy x mutator x noise sub-sweep
+    (48 combos, noise is OPRO-only); 'gepa' and 'open_evolve' each
+    contribute one fixed-noise=0 config, for 50 combos total per
     (benchmark, optimizer_llm, inference_model_name) triple.
     """
     # --- Define Hyperparameter Parameter Search Space
     pruning_strategy = 'lowest_scoring'
-    max_population_size = 20
+    max_population_size = 15
     sampling_strategies = [
         'highest_scoring',
         'tournament',
         'wheel',
     ]
     mutators = ['kincontext', 'DE', 'GA', 'GEPA']
-    noise = 0
+    # OPRO-only sweep -- gepa/open_evolve keep noise fixed at 0 (see
+    # base_config below), so they aren't inflated by this axis.
+    opro_noise_values = [0, 0.05, 0.1, 0.25]
 
     optimizer_llms = optimizer_llms or get_default_optimizer_llms(task_name)
-    inference_model_names = inference_model_names or ['google/gemma-4-E4B-it']
+    inference_model_names = (
+        inference_model_names or get_default_inference_model_names(task_name)
+    )
     device_profile = get_device_profile(task_name)
 
     # Handle multiple benchmarks for prompt optimization
@@ -100,7 +114,7 @@ def get_args_for_roll_outs(
             'optimizer_llm': optimizer_llm,
             'pruning_strategy': pruning_strategy,
             'max_population_size': max_population_size,
-            'noise': noise,
+            'noise': 0,
             'num_iter': num_iter,
             'benchmark': benchmark,
             'inference_model_name': inference_model_name,
@@ -111,11 +125,13 @@ def get_args_for_roll_outs(
             base_config['problem_id'] = 1
             base_config['level'] = 1
 
-        # OPRO: full sampling-strategy x mutator sub-sweep. Kincontext is
-        # context-length-bound (n); every other mutator uses a fixed n.
-        for strategy, mutator in itertools.product(
+        # OPRO: full sampling-strategy x mutator x noise sub-sweep.
+        # Kincontext is context-length-bound (n); every other mutator uses
+        # a fixed n.
+        for strategy, mutator, noise in itertools.product(
             sampling_strategies,
             mutators,
+            opro_noise_values,
         ):
             n_values = (
                 [get_kincontext_n(task_name)]
@@ -130,6 +146,7 @@ def get_args_for_roll_outs(
                         'sampling_strategy_name': strategy,
                         'mutator': mutator,
                         'n': n,
+                        'noise': noise,
                     },
                 )
 
@@ -242,7 +259,7 @@ def get_args_for_pop_dynamics(
     directly with no per-task subfolder.
     """
     pruning_strategy = 'lowest_scoring'
-    max_population_size = 20
+    max_population_size = 15
     sampling_strategies = ['highest_scoring', 'tournament', 'wheel']
     mutators = ['kincontext', 'DE', 'GA', 'GEPA']
     noise = 0
