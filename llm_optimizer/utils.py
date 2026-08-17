@@ -15,6 +15,7 @@ import httpx
 import numpy as np
 import ray
 import requests
+import torch
 from openai import APIConnectionError
 from openai import APIStatusError
 from openai import OpenAI
@@ -472,8 +473,15 @@ def get_similarity_percentiles(
         raise ValueError("""At least two texts are required
         to compute pairwise similarities.""")
 
-    model = SentenceTransformer(model_name, device=device)
-    embeddings = model.encode(texts)
+    # fp16 + capped seq length + small batches bound peak memory
+    model_kwargs = {'torch_dtype': torch.float16} if device == 'cuda' else {}
+    model = SentenceTransformer(
+        model_name,
+        device=device,
+        model_kwargs=model_kwargs,
+    )
+    model.max_seq_length = min(model.max_seq_length, 4096)
+    embeddings = model.encode(texts, batch_size=8)
 
     similarity_matrix = cosine_similarity(embeddings)
 
