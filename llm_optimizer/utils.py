@@ -19,6 +19,7 @@ from openai import APIConnectionError
 from openai import APIStatusError
 from openai import OpenAI
 from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
 
 
 def extract_python_code(output_string: str | None) -> str | None:
@@ -455,3 +456,35 @@ class VLLMServerActor:
         """Explicitly kill the underlying vllm process."""
         if self.process.poll() is None:
             os.killpg(os.getpgid(self.process.pid), signal.SIGKILL)
+
+
+def get_similarity_percentiles(
+    texts: list[str],
+    model_name: str = 'all-MiniLM-L6-v2',
+    percentiles: tuple[float, ...] = (75.0, 80.0, 95.0),
+    device: str = 'cpu',
+) -> dict[str, float]:
+    """Embeds texts, computes pairwise cosine similarities.
+
+    returns the requested percentiles of the similarity scores.
+    """
+    if len(texts) < 2:  # noqa: PLR2004
+        raise ValueError("""At least two texts are required
+        to compute pairwise similarities.""")
+
+    model = SentenceTransformer(model_name, device=device)
+    embeddings = model.encode(texts)
+
+    similarity_matrix = cosine_similarity(embeddings)
+
+    # Extract upper triangle indices, excluding the diagonal (self-similarity)
+    triu_indices = np.triu_indices_from(similarity_matrix, k=1)
+    pairwise_scores = similarity_matrix[triu_indices]
+
+    calculated_values = np.percentile(pairwise_scores, percentiles)
+
+    # Map input percentiles to their calculated scores
+    return {
+        f'{p}th_percentile': float(val)
+        for p, val in zip(percentiles, calculated_values, strict=True)
+    }
