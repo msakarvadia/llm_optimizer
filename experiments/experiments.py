@@ -171,11 +171,12 @@ if __name__ == '__main__':
         '--inference_model_name',
         type=str,
         nargs='+',
-        default=['google/gemma-4-E4B-it'],
+        default=None,
         help=(
             'general_rollout/harmbench+prompt only: the target/inference '
-            'model(s). Defaults to the same model main.py itself defaults '
-            'to.'
+            'model(s). If unset, defaults per task_name (see '
+            'get_default_inference_model_names): harmbench -> OLMo-2-DPO, '
+            'prompt -> Llama-3.2-1B-Instruct, else -> gemma-4-E4B-it.'
         ),
     )
     args = parser.parse_args()
