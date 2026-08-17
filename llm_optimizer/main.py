@@ -42,6 +42,8 @@ if __name__ == '__main__':
         choices=[
             'gemini-3.1-pro-preview',
             'gemini-3.5-flash',
+            'gemini-3.6-flash',
+            'gemini-3.7-flash',
             'gemini-2.5-flash',
             'openai/gpt-oss-120b',
             'meta-llama/Llama-3.1-8B-Instruct',

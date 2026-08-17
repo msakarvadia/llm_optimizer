@@ -24,7 +24,7 @@ class HarmBench(Task):
     # batching becomes the bottleneck -- measured KV cache headroom for
     # our actual ~2k-token requests (not the model's full 131k context)
     # supports roughly 80 concurrent requests.
-    LOCAL_MAX_CONCURRENT_TARGET_REQUESTS = 80
+    LOCAL_MAX_CONCURRENT_TARGET_REQUESTS = 4
     REMOTE_MAX_CONCURRENT_TARGET_REQUESTS = 2
 
     # cais/HarmBench-Llama-2-13b-cls has a fixed max_model_len of 2048.
