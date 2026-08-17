@@ -83,6 +83,7 @@ class TravelingSalesman(Task):
         """Evaluate the generated trace."""
         try:
             parsed_output = extract_string(solution)
+            validate_trace(parsed_output, self.num_points)
             distance = evaluate_distance(
                 self.x,
                 self.y,
@@ -121,6 +122,26 @@ def evaluate_distance(
     dis += np.sqrt((x[id0] - x[id1]) ** 2 + (y[id0] - y[id1]) ** 2)
     dis = np.round(dis, num_decimals) if num_decimals > 0 else int(dis)
     return dis
+
+
+def validate_trace(trace: list[int], num_points: int) -> None:
+    """Validate that trace visits every city exactly once.
+
+    Without this check, a trace that omits cities (fewer edges) can score
+    *better* than a correct full tour, since evaluate_distance only sums
+    consecutive-point distances over whatever list it is given -- silently
+    rewarding degenerate/incomplete solutions over valid ones.
+    """
+    if len(trace) != num_points:
+        raise ValueError(
+            f'Trace visits {len(trace)} cities, expected {num_points} '
+            '(missing and/or duplicate cities).',
+        )
+    seen = set(trace)
+    if len(seen) != num_points:
+        raise ValueError('Trace contains duplicate cities.')
+    if seen != set(range(num_points)):
+        raise ValueError('Trace contains out-of-range city indices.')
 
 
 def extract_string(input_string: str) -> list[int]:
