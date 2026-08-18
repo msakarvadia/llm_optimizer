@@ -150,11 +150,26 @@ class OPROOptimizer(Optimizer):
             ),
         }[kwargs['mutator']]
 
-    def optimize(self, num_iter: int = 5) -> None:
-        """Optimization loop for task."""
+    def optimize(
+        self,
+        num_iter: int = 5,
+        max_tokens: int | None = None,
+    ) -> None:
+        """Optimization loop for task.
+
+        max_tokens: optional cumulative token budget (mutator +
+            diversity-judge calls, see SolutionBank.cumulative_tokens_spent).
+            None (default) disables the check, so num_iter is the sole
+            stopping criterion. Checked at the top of the loop only (same
+            cadence as num_iter), so a run can overshoot the budget by up
+            to one iteration's worth of tokens.
+        """
         # TODO(MS): impl convergence criteria
 
-        while self.solution_bank.get_num_total_iterations() <= num_iter:
+        while self.solution_bank.get_num_total_iterations() <= num_iter and (
+            max_tokens is None
+            or self.solution_bank.get_cumulative_tokens_spent() <= max_tokens
+        ):
             solution_bank = self.solution_bank.get_solutions(
                 n=self.n,
                 sampling_strategy_name=self.sampling_strategy_name,
@@ -772,3 +787,7 @@ class SolutionBank:
     def get_num_total_iterations(self) -> int:
         """Total # of past solutions generated."""
         return len(self.never_prune_bank)
+
+    def get_cumulative_tokens_spent(self) -> int:
+        """Total tokens spent across every candidate generated so far."""
+        return self.cumulative_tokens_spent

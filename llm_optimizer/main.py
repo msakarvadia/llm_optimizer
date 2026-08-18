@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from typing import Any
 
 import torch
 import yaml
@@ -184,6 +185,15 @@ if __name__ == '__main__':
         help="""Number of rounds of optimization.""",
     )
     parser.add_argument(
+        '--max_tokens',
+        type=int,
+        default=None,
+        help="""Opro specific: token budget cutoff (cumulative, across
+        mutator + diversity-judge calls). None (default) disables it and
+        --num_iter is the sole stopping criterion. Whichever of
+        --num_iter/--max_tokens is hit first terminates the run.""",
+    )
+    parser.add_argument(
         '--seed',
         type=int,
         default=0,  # TODO(MS): make sure this is used
@@ -317,6 +327,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     args_dict = vars(args).copy()
     args_dict.pop('num_iter', None)
+    args_dict.pop('max_tokens', None)
     args_dict.pop('experiment_dir', None)
     args_dict.pop('optimizer_base_url_override', None)
     args_dict.pop('inference_base_url_override', None)
@@ -548,4 +559,9 @@ if __name__ == '__main__':
         json.dump(args_manifest, f, indent=2, sort_keys=True)
 
     # optimize
-    llm_optimizer.optimize(num_iter=args.num_iter)
+    # NOTE(MS): max_tokens is opro-specific (see OPROOptimizer.optimize);
+    # gepa/open_evolve's optimize() only take num_iter.
+    optimize_kwargs: dict[str, Any] = {'num_iter': args.num_iter}
+    if args.optimizer_name == 'opro':
+        optimize_kwargs['max_tokens'] = args.max_tokens
+    llm_optimizer.optimize(**optimize_kwargs)
