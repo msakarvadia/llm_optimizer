@@ -156,7 +156,9 @@ def curate_population(  # noqa: PLR0913
 
             sims = cosine_similarity(embeddings)
             triu_idx = np.triu_indices_from(sims, k=1)
-            threshold = float(np.percentile(sims[triu_idx], p))
+            # np.percentile wants 0-100, but p is a 0-1 fraction (shared
+            # convention with the tournament branch's p) -- rescale.
+            threshold = float(np.percentile(sims[triu_idx], p * 100))
 
             population = _diversity_rejection_sample(
                 candidates,
