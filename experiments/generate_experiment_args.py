@@ -124,6 +124,8 @@ def get_args_for_roll_outs(
             base_config['backend'] = 'cuda'
             base_config['problem_id'] = 1
             base_config['level'] = 1
+        if task_name == 'tsp':
+            base_config['num_points'] = 80
 
         # OPRO: full sampling-strategy x mutator x noise sub-sweep.
         # Kincontext is context-length-bound (n); every other mutator uses

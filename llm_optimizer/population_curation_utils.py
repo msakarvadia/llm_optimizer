@@ -14,17 +14,48 @@ from sklearn.metrics.pairwise import cosine_similarity
 def _pool_candidates_within_budget(
     solution_banks: list[dict[str, Any]],
     iteration_budget: int,
+    dedup: str = 'max',
 ) -> tuple[list[dict[str, Any]], int]:
-    """Pool deduped (solution, score) pairs within budget, plus token cost.
+    """Pool (solution, score) pairs within budget, plus token cost.
 
     A solution's score can vary across occurrences (e.g. a task whose
     target-generation step isn't temperature-pinned, so the same
     candidate text gets independently re-sampled and re-judged each time
-    it's evaluated) -- the HIGHEST observed score wins, not whichever
-    occurrence is encountered first.
+    it's evaluated). `dedup='max'` (default) keeps the HIGHEST observed
+    score for a repeated solution; `dedup='min'` keeps the LOWEST --
+    provided as a compare-and-contrast lever against the 'max' default,
+    not because 'min' is a recommended policy. `dedup='none'` skips
+    deduplication entirely: every occurrence becomes its own candidate,
+    so a solution repeated N times across the pooled banks contributes N
+    (possibly identical) entries -- a worst-case baseline showing what
+    happens if a duplicated high scorer is left free to crowd out the
+    rest of a curated population, not a recommended policy either.
     """
-    best_by_solution: dict[str, float] = {}
+    if dedup not in ('max', 'min', 'none'):
+        raise ValueError(
+            f"dedup must be 'max', 'min', or 'none', got {dedup!r}",
+        )
+
     total_cost_tokens = 0
+
+    if dedup == 'none':
+        candidates: list[dict[str, Any]] = []
+        for bank in solution_banks:
+            in_budget_keys = [k for k in bank if int(k) <= iteration_budget]
+            if in_budget_keys:
+                last_key = max(in_budget_keys, key=int)
+                total_cost_tokens += (
+                    bank[last_key].get('cumulative_tokens_spent', 0) or 0
+                )
+            for iter_key in in_budget_keys:
+                entry = bank[iter_key]
+                candidates.append(
+                    {'solution': entry['solution'], 'score': entry['score']},
+                )
+        return candidates, total_cost_tokens
+
+    better = (lambda a, b: a > b) if dedup == 'max' else (lambda a, b: a < b)
+    best_by_solution: dict[str, float] = {}
     for bank in solution_banks:
         in_budget_keys = [k for k in bank if int(k) <= iteration_budget]
         if in_budget_keys:
@@ -35,9 +66,9 @@ def _pool_candidates_within_budget(
         for iter_key in in_budget_keys:
             entry = bank[iter_key]
             solution = entry['solution']
-            if (
-                solution not in best_by_solution
-                or entry['score'] > best_by_solution[solution]
+            if solution not in best_by_solution or better(
+                entry['score'],
+                best_by_solution[solution],
             ):
                 best_by_solution[solution] = entry['score']
     candidates = [
@@ -131,10 +162,21 @@ def curate_population(  # noqa: PLR0913
     max_population_size: int = 15,
     p: float = 0.9,
     embed_model_name: str = 'all-MiniLM-L6-v2',
+    dedup: str = 'max',
+    population_size: int | None = None,
 ) -> list[dict[str, Any]]:
     """Curate a population via tournament, diversity-rejection, or greedy.
 
-    (top-N by score, no diversity filtering, `p` unused) sampling.
+    (top-N by score, no diversity filtering, `p` unused) sampling. `dedup`
+    is passed straight to `_pool_candidates_within_budget` -- see its
+    docstring for the 'max' (default) vs. 'min' distinction.
+
+    `population_size`, when given, overrides the adaptive
+    `max_population_size` scheme with an exact target instead (still
+    capped at however many candidates are actually available -- this
+    can't manufacture candidates that don't exist). Leave it `None` (the
+    default) to keep the adaptive `min(max_population_size,
+    total_candidates)` behavior.
     """
     if curation_type not in ('tournament', 'diversity', 'greedy'):
         raise ValueError(
@@ -145,14 +187,19 @@ def curate_population(  # noqa: PLR0913
     candidates, cost_tokens = _pool_candidates_within_budget(
         solution_banks,
         iteration_budget,
+        dedup=dedup,
     )
     total_candidates = len(candidates)
     if total_candidates == 0:
         return []
 
-    # Dynamic sizing: cap at max_population_size, otherwise use every
-    # available candidate.
-    curated_size = min(max_population_size, total_candidates)
+    # Dynamic sizing: an explicit population_size overrides the adaptive
+    # max_population_size scheme; either way, cap at however many
+    # candidates actually exist.
+    target_size = (
+        population_size if population_size is not None else max_population_size
+    )
+    curated_size = min(target_size, total_candidates)
 
     if curation_type == 'tournament':
         population = _tournament_sample(
