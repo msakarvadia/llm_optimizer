@@ -29,6 +29,17 @@ DEFAULT_DEVICE_PROFILE: dict[str, int | float] = {
     'num_cpus': 0.25,
 }
 
+# Cumulative mutator+diversity-judge token budget per task_name (see
+# OPROOptimizer.optimize's max_tokens; opro-only -- gepa/open_evolve ignore
+# it, see main.py). Tasks not listed here get no budget, i.e. num_iter
+# remains the sole stopping criterion.
+TASK_TOKEN_BUDGETS: dict[str, int] = {
+    'harmbench': 70_000,
+    'prompt': 150_000,
+    'cloudcast': 4_000_000,
+    'cantbelate': 2_000_000,
+}
+
 
 def get_device_profile(task_name: str) -> dict[str, int | float]:
     """Resolve local Ray-scheduling resources for a task subprocess."""
@@ -126,6 +137,8 @@ def get_args_for_roll_outs(
             base_config['level'] = 1
         if task_name == 'tsp':
             base_config['num_points'] = 80
+        if task_name in TASK_TOKEN_BUDGETS:
+            base_config['max_tokens'] = TASK_TOKEN_BUDGETS[task_name]
 
         # OPRO: full sampling-strategy x mutator x noise sub-sweep.
         # Kincontext is context-length-bound (n); every other mutator uses
@@ -286,6 +299,8 @@ def get_args_for_pop_dynamics(
         if f.endswith('.json')
     )
 
+    max_tokens = TASK_TOKEN_BUDGETS.get(real_task_name)
+
     experiments_to_run = []
 
     for strategy, mutator, pop_path in itertools.product(
@@ -311,6 +326,8 @@ def get_args_for_pop_dynamics(
             'init_population_path': pop_path,
             **device_profile,
         }
+        if max_tokens is not None:
+            config['max_tokens'] = max_tokens
         experiments_to_run.append(config)
 
     return experiments_to_run
