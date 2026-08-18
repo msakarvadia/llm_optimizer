@@ -140,9 +140,7 @@ def curate_population(  # noqa: PLR0913
         # curation_type == 'diversity'
         solutions = [c['solution'] for c in candidates]
         if len(solutions) < 2:  # noqa: PLR2004
-            # No pairwise similarities to derive a threshold from -- every
-            # candidate is trivially "diverse enough" (and curated_size ==
-            # total_candidates here anyway), so just take them all.
+            # No pairwise similarities to derive a threshold from
             population = candidates[:curated_size]
         else:
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -170,7 +168,6 @@ def curate_population(  # noqa: PLR0913
     # Stamp the pooled token cost onto the last (highest-index) entry only,
     # matching save_population_json's / SolutionBank.read_from_checkpoint's
     # convention, so a downstream OPRO run seeded from this population
-    # picks up the pooled cost automatically, no extra plumbing needed.
     if population:
         population[-1]['cumulative_tokens_spent'] = cost_tokens
 
