@@ -38,6 +38,7 @@ TASK_TOKEN_BUDGETS: dict[str, int] = {
     'prompt': 150_000,
     'cloudcast': 4_000_000,
     'cantbelate': 2_000_000,
+    'tsp': 1_000_000,
 }
 
 
