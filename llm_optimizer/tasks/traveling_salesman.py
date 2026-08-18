@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 from typing import Any
 
 import numpy as np
@@ -21,7 +20,14 @@ class TravelingSalesman(Task):
         **kwargs: Any,
     ) -> None:
         """Initialize task."""
-        self.failed_score = -math.inf
+        # Finite sentinel (matches cloudcast/cant_be_late's FAILED_SCORE
+        # convention) instead of -math.inf: the 'wheel' sampling strategy
+        # in opro.py shifts scores by -min_score, and -inf + inf == NaN
+        # crashes np.random.choice once an unparseable trace enters the
+        # population. -1_000_000 (not -100_000) since TSP distances can
+        # legitimately sum into the tens of thousands, so -100_000 isn't
+        # safely out of range of a genuine score.
+        self.failed_score = -1_000_000.0
         rng = np.random.default_rng(seed=kwargs['seed'])
 
         self.num_points = kwargs['num_points']
@@ -96,7 +102,7 @@ class TravelingSalesman(Task):
             error_dict = {}
         except Exception as error:
             print('THERE IS AN ERROR PARSING RESPONSE')
-            score = -math.inf
+            score = self.failed_score
             error_dict = {'error': error}
 
         return score, error_dict, None
