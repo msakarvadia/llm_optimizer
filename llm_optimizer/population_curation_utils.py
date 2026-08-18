@@ -42,7 +42,11 @@ def _tournament_sample(
     p: float,
     seed: int,
 ) -> list[dict[str, Any]]:
-    """No-resampling tournament rounds; K = p * active pool size."""
+    """Tournament rounds; K = p * active pool size.
+
+    Only the winner is removed each round
+    -- losers stay eligible for later rounds.
+    """
     rng = random.Random(seed)
     active = list(candidates)
     population: list[dict[str, Any]] = []
@@ -51,11 +55,9 @@ def _tournament_sample(
         contestants = rng.sample(active, k_eff)
         winner = max(contestants, key=lambda item: item['score'])
         population.append(winner)
-        # Identity-based removal (not list.remove, which matches by == and
-        # could drop the wrong record if two distinct candidates happen to
-        # share a score) -- exact regardless of score collisions.
-        contestant_ids = {id(item) for item in contestants}
-        active = [item for item in active if id(item) not in contestant_ids]
+        # Identity-based removal (exact regardless of score collisions);
+        # only the winner leaves `active`, losers can be resampled later.
+        active = [item for item in active if id(item) != id(winner)]
     return population
 
 
