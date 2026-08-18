@@ -15,9 +15,15 @@ def _pool_candidates_within_budget(
     solution_banks: list[dict[str, Any]],
     iteration_budget: int,
 ) -> tuple[list[dict[str, Any]], int]:
-    """Pool deduped (solution, score) pairs within budget, plus token cost."""
-    seen_solutions: set[str] = set()
-    candidates: list[dict[str, Any]] = []
+    """Pool deduped (solution, score) pairs within budget, plus token cost.
+
+    A solution's score can vary across occurrences (e.g. a task whose
+    target-generation step isn't temperature-pinned, so the same
+    candidate text gets independently re-sampled and re-judged each time
+    it's evaluated) -- the HIGHEST observed score wins, not whichever
+    occurrence is encountered first.
+    """
+    best_by_solution: dict[str, float] = {}
     total_cost_tokens = 0
     for bank in solution_banks:
         in_budget_keys = [k for k in bank if int(k) <= iteration_budget]
@@ -29,10 +35,15 @@ def _pool_candidates_within_budget(
         for iter_key in in_budget_keys:
             entry = bank[iter_key]
             solution = entry['solution']
-            if solution in seen_solutions:
-                continue
-            seen_solutions.add(solution)
-            candidates.append({'solution': solution, 'score': entry['score']})
+            if (
+                solution not in best_by_solution
+                or entry['score'] > best_by_solution[solution]
+            ):
+                best_by_solution[solution] = entry['score']
+    candidates = [
+        {'solution': solution, 'score': score}
+        for solution, score in best_by_solution.items()
+    ]
     return candidates, total_cost_tokens
 
 
@@ -59,6 +70,15 @@ def _tournament_sample(
         # only the winner leaves `active`, losers can be resampled later.
         active = [item for item in active if id(item) != id(winner)]
     return population
+
+
+def _greedy_sample(
+    candidates: list[dict[str, Any]],
+    pop_size: int,
+) -> list[dict[str, Any]]:
+    """Top `pop_size` candidates by score, no diversity filtering at all."""
+    ordered = sorted(candidates, key=lambda item: item['score'], reverse=True)
+    return ordered[:pop_size]
 
 
 def _diversity_rejection_sample(
@@ -112,10 +132,13 @@ def curate_population(  # noqa: PLR0913
     p: float = 0.9,
     embed_model_name: str = 'all-MiniLM-L6-v2',
 ) -> list[dict[str, Any]]:
-    """Curate a population via tournament or diversity-rejection sampling."""
-    if curation_type not in ('tournament', 'diversity'):
+    """Curate a population via tournament, diversity-rejection, or greedy.
+
+    (top-N by score, no diversity filtering, `p` unused) sampling.
+    """
+    if curation_type not in ('tournament', 'diversity', 'greedy'):
         raise ValueError(
-            f"curation_type must be 'tournament' or 'diversity', "
+            f"curation_type must be 'tournament', 'diversity', or 'greedy', "
             f'got {curation_type!r}',
         )
 
@@ -138,6 +161,8 @@ def curate_population(  # noqa: PLR0913
             p=p,
             seed=42,
         )
+    elif curation_type == 'greedy':
+        population = _greedy_sample(candidates, pop_size=curated_size)
     else:
         # curation_type == 'diversity'
         solutions = [c['solution'] for c in candidates]
