@@ -33,7 +33,7 @@ sbatch --time=0-12:00:00 --nodes=1 --cpus-per-task=64 --mem=100000M --gres=gpu:3
 # Job B: CPU-only -- gemini-3.1-pro optimizer, API-hosted, no local model at all.
 sbatch --time=0-12:00:00 --nodes=1 --cpus-per-task=64 --mem=300000M --gres=gpu:0 \
   --job-name=pop_dyn_cpu_only_batch multi_node_ray_launch_exps.sh population_dynamics \
-  --task_name cantbelate cloudcast --population_dir $POP_DIR --num_iter 50
+  --task_name cantbelate cloudcast --population_dir $POP_DIR --num_iter 150
 
 # Job C: kernelbench -- real GPU per task; gpu:4 is a concurrency dial (how
 # many kernelbench tasks run at once), not a shared-model count -- adjust to
