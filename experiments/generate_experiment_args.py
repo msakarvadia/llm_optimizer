@@ -26,7 +26,7 @@ TASK_DEVICE_PROFILES: dict[str, dict[str, int | float]] = {
 }
 DEFAULT_DEVICE_PROFILE: dict[str, int | float] = {
     'num_gpus': 0,
-    'num_cpus': 0.25,
+    'num_cpus': 0.1,
 }
 
 # Cumulative mutator+diversity-judge token budget per task_name (see
@@ -287,15 +287,12 @@ def get_args_for_pop_dynamics(
     population_dynamics results are directly comparable to general_rollout's:
     the only thing that varies is where OPRO starts from.
 
-    Directory discovery: first tries `<population_dir>/<task_name>/budget_*/`
-    (the iteration-budget curation notebook's layout), unioning every
-    budget's *.json files into one sweep -- so budgets-within-a-task and
-    tasks-within-a-job (via experiments.py's existing per-task_name loop)
-    both merge into as few experiments.py invocations as possible. Falls
-    back to listing `population_dir` directly (today's exact behavior) if no
-    budget_* subdirs are found there, e.g. curated_initial_populations_v2/
-    <task>/ and curated_perturbation_populations/, which hold *.json files
-    directly with no per-task subfolder.
+    Directory discovery, in order: `<population_dir>/<task_name>/budget_*/`
+    (iteration-budget curation layout, unioning every budget's *.json files);
+    else `<population_dir>/<task_name>/` if it exists (flat per-task layout,
+    e.g. currated_initial_populations_baselines/); else `population_dir`
+    itself (original behavior, for callers like curated_initial_populations_v2/
+    <task>/ that point directly at a flat dir of *.json files).
     """
     pruning_strategy = 'lowest_scoring'
     max_population_size = 15
@@ -311,10 +308,14 @@ def get_args_for_pop_dynamics(
     optimizer_llm = get_default_optimizer_llms(real_task_name)[0]
     device_profile = get_device_profile(real_task_name)
 
-    budget_dirs = sorted(
-        glob.glob(os.path.join(population_dir, task_name, 'budget_*/')),
-    )
-    search_dirs = budget_dirs or [population_dir]
+    task_dir = os.path.join(population_dir, task_name)
+    budget_dirs = sorted(glob.glob(os.path.join(task_dir, 'budget_*/')))
+    if budget_dirs:
+        search_dirs = budget_dirs
+    elif os.path.isdir(task_dir):
+        search_dirs = [task_dir]
+    else:
+        search_dirs = [population_dir]
 
     init_population_files = sorted(
         os.path.join(d, f)
