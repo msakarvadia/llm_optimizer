@@ -9,6 +9,17 @@
 #SBATCH --output=ray_cluster_%j.out
 #SBATCH --error=ray_cluster_%j.err
 
+# Force a job-scoped RAY_TMPDIR regardless of what the submitting shell's
+# environment carried in via sbatch's --export=ALL default. Batch scripts
+# don't source ~/.bashrc, so its SLURM_JOB_ID-conditional RAY_TMPDIR never
+# re-fires in here -- without this, every sbatch call issued from the same
+# shell (e.g. population_dynamics_launch_exps.sh's Job A/B back-to-back)
+# inherits the same timestamp-based RAY_TMPDIR from .bashrc's login-shell
+# fallback, so their Ray clusters collide on one shared session/discovery
+# directory and RAY_ADDRESS=auto can resolve to a different job's cluster.
+export RAY_TMPDIR="/scratch/mansisak/r_${SLURM_JOB_ID}"
+mkdir -p "$RAY_TMPDIR"
+
 
 # --- SIGNAL INTERCEPTOR ---
 # Covers Ctrl-C (SIGINT) and Slurm's timeout/scancel/preemption signal
