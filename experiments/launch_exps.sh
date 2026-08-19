@@ -8,7 +8,7 @@ sbatch --time=0-12:00:00 --nodes=1 --cpus-per-task=64 --mem=300000M --gres=gpu:4
   --task_name harmbench prompt --num_iter 50
 
 # Job B: CPU-only
-sbatch --time=0-06:00:00 --nodes=2 --cpus-per-task=64 --mem=300000M --gres=gpu:0 \
+sbatch --time=0-07:00:00 --nodes=1 --cpus-per-task=64 --mem=300000M --gres=gpu:0 \
   --job-name=cpu_only_batch multi_node_ray_launch_exps.sh general_rollout \
   --task_name cantbelate cloudcast tsp --num_iter 150
 
