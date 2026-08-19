@@ -173,7 +173,10 @@ if __name__ == '__main__':
         help="""Opro specific: max cosine similarity (embedding space, via
         --embed_model) a new candidate may have to any active-pool
         solution before it's rejected as insufficiently diverse. Range
-        0-1; 0 (default) disables the diversity check entirely.""",
+        0-1; 0 (default) disables the diversity check entirely. -1 is an
+        exclusive sentinel for exact-deduplication-only mode: rejects a
+        candidate iff its solution text is byte-identical to an existing
+        active-pool solution, no embeddings/fuzzy check involved.""",
     )
 
     # NOTE(MS) this is not a rigorous method to compare budgets across

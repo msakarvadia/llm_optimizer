@@ -422,7 +422,17 @@ class SolutionBank:
 
         # this is where self.bank[next_iter] gets popped back out if it
         # wasn't diverse enough compared to the current active pool
-        if self.sim_thresh > 0:
+        # NOTE(MS): sim_thresh == -1 is for exact deduplication only.
+        if self.sim_thresh == -1:
+            active_pop = [
+                sub_dict['solution'] for sub_dict in self.bank.values()
+            ]
+            active_pop.remove(solution)  # exclude this entry itself
+            is_duplicate = solution in active_pop
+            self.bank[next_iter]['exact_duplicate_rejected'] = is_duplicate
+            if is_duplicate:
+                self.bank.pop(next_iter)
+        elif self.sim_thresh > 0:
             active_pop = [
                 sub_dict['solution'] for sub_dict in self.bank.values()
             ]
