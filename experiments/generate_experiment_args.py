@@ -41,6 +41,18 @@ TASK_TOKEN_BUDGETS: dict[str, int] = {
     'tsp': 1_000_000,
 }
 
+# OPRO-only diversity-check sweep (gepa/open_evolve ignore sim_thresh, see
+# opro.py). 'llm_judge' omitted (not None) so experiments.py's str(val)
+# CLI serialization doesn't emit a literal "None" main.py can't parse.
+DIVERSITY_CHECK_VARIANTS: list[dict[str, Any]] = [
+    {'sim_thresh': 0},  # no filtering (current default)
+    {'sim_thresh': -1},  # exact-dedup baseline
+    {'sim_thresh': 0.95},  # fuzzy, no judge
+    {'sim_thresh': 0.95, 'llm_judge': 'gemini-3.5-flash'},  # fuzzy, judged
+    {'sim_thresh': 0.8},  # fuzzy, no judge
+    {'sim_thresh': 0.8, 'llm_judge': 'gemini-3.5-flash'},  # fuzzy, judged
+]
+
 
 def get_device_profile(task_name: str) -> dict[str, int | float]:
     """Resolve local Ray-scheduling resources for a task subprocess."""
@@ -55,7 +67,7 @@ def get_default_optimizer_llms(task_name: str) -> list[str]:
     if task_name == 'harmbench':
         return ['mlabonne/NeuralDaredevil-8B-abliterated']
     if task_name == 'prompt':
-        return ['gemini-3.6-flash']
+        return ['gemini-3.5-flash']
     # return ['gemini-3.1-pro-preview']
     return ['gemini-3.7-flash']
 
@@ -77,6 +89,13 @@ def get_kincontext_n(task_name: str) -> int:
     if task_name in ('kernelbench', 'cloudcast', 'cantbelate'):
         return 3
     return 5
+
+
+def get_embed_model(task_name: str) -> str:
+    """Diversity-check embedding model, per task."""
+    if task_name in ('kernelbench', 'cloudcast', 'cantbelate'):
+        return 'Qodo/Qodo-Embed-1-1.5B'
+    return 'all-MiniLM-L6-v2'
 
 
 def get_args_for_roll_outs(
@@ -103,7 +122,8 @@ def get_args_for_roll_outs(
     mutators = ['kincontext', 'DE', 'GA', 'GEPA']
     # OPRO-only sweep -- gepa/open_evolve keep noise fixed at 0 (see
     # base_config below), so they aren't inflated by this axis.
-    opro_noise_values = [0, 0.05, 0.1, 0.25]
+    opro_noise_values = [0]
+    # opro_noise_values = [0, 0.05, 0.1, 0.25]
 
     optimizer_llms = optimizer_llms or get_default_optimizer_llms(task_name)
     inference_model_names = (
@@ -141,13 +161,14 @@ def get_args_for_roll_outs(
         if task_name in TASK_TOKEN_BUDGETS:
             base_config['max_tokens'] = TASK_TOKEN_BUDGETS[task_name]
 
-        # OPRO: full sampling-strategy x mutator x noise sub-sweep.
-        # Kincontext is context-length-bound (n); every other mutator uses
-        # a fixed n.
-        for strategy, mutator, noise in itertools.product(
+        # OPRO: full sampling-strategy x mutator x noise x diversity-check
+        # sub-sweep. Kincontext is context-length-bound (n); every other
+        # mutator uses a fixed n.
+        for strategy, mutator, noise, diversity_variant in itertools.product(
             sampling_strategies,
             mutators,
             opro_noise_values,
+            DIVERSITY_CHECK_VARIANTS,
         ):
             n_values = (
                 [get_kincontext_n(task_name)]
@@ -163,6 +184,8 @@ def get_args_for_roll_outs(
                         'mutator': mutator,
                         'n': n,
                         'noise': noise,
+                        'embed_model': get_embed_model(task_name),
+                        **diversity_variant,
                     },
                 )
 
