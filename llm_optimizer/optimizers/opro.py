@@ -264,6 +264,11 @@ class SolutionBank:
             self.embedding_model = SentenceTransformer(
                 kwargs.get('embed_model', ''),
                 device='cpu',
+                # NOTE(MS): jina-embeddings-v2-base-code (the code-task
+                # embed_model, see get_embed_model) ships custom modeling
+                # code and needs this to load; harmless no-op for
+                # all-MiniLM-L6-v2's stock architecture.
+                trust_remote_code=True,
             )
             if self.llm_judge_model_name:
                 self.llm_judge_client = build_openai_client(
