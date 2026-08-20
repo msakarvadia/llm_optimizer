@@ -680,7 +680,8 @@ class SolutionBank:
                 (
                     self.bank[i]['solution'],
                     self.bank[i]['score'],
-                    self.bank[i]['extra_info'],
+                    # NOTE(MS): older bank JSONs predate this field
+                    self.bank[i].get('extra_info', {}),
                 ),
             )
 
