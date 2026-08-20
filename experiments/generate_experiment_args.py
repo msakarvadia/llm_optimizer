@@ -306,6 +306,7 @@ def get_args_for_pop_dynamics(
         (task_name, 'drop'),
     )
     optimizer_llm = get_default_optimizer_llms(real_task_name)[0]
+    inference_model_name = get_default_inference_model_names(real_task_name)[0]
     device_profile = get_device_profile(real_task_name)
 
     task_dir = os.path.join(population_dir, task_name)
@@ -349,6 +350,7 @@ def get_args_for_pop_dynamics(
             'sampling_prob': sampling_prob,
             'n': n,
             'init_population_path': pop_path,
+            'inference_model_name': inference_model_name,
             **device_profile,
         }
         if max_tokens is not None:
