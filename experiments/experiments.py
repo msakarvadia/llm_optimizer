@@ -12,6 +12,7 @@ from typing import Any
 
 import ray
 import yaml
+from generate_experiment_args import get_args_for_parallel_zeroshot
 from generate_experiment_args import get_args_for_pop_dynamics
 from generate_experiment_args import get_args_for_roll_outs
 from generate_experiment_args import run_random_number_bias_experiment
@@ -125,6 +126,7 @@ if __name__ == '__main__':
             'population_dynamics',
             'perturb',
             'random_number_bias',
+            'parallel_zeroshot',
         ],
         help='Name of experiment.',
     )
@@ -247,6 +249,10 @@ if __name__ == '__main__':
                     task_name=task_name,
                     num_iter=args.num_iter,
                 ),
+            )
+        elif args.experiment_name == 'parallel_zeroshot':
+            experiments.extend(
+                get_args_for_parallel_zeroshot(task_name=task_name),
             )
     print(f'{len(experiments)=}')
 

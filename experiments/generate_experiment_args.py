@@ -263,6 +263,88 @@ def run_random_number_bias_experiment(
     return results
 
 
+# Parallel zero-shot discovery: instead of one sequential trajectory rolled
+# out to a token/iteration budget, roll a single trajectory out for exactly
+# 1 step (num_iter=1) and repeat that over N seeds in parallel -- budget is
+# spent as breadth (N parallel 1-step attempts) instead of depth (one long
+# sequential rollout). N per task is chosen to roughly match how many
+# sequential steps a normal general_rollout run gets through before
+# exhausting that task's TASK_TOKEN_BUDGETS entry (see
+# get_args_for_parallel_zeroshot's docstring).
+PARALLEL_ZEROSHOT_NUM_SEEDS: dict[str, int] = {
+    'harmbench': 70,
+    'prompt': 70,
+    'cloudcast': 200,
+    'cantbelate': 200,
+    'tsp': 100,
+}
+
+# Only kincontext and GEPA are swept for parallel_zeroshot -- at bank size 1
+# (exactly what num_iter=1 leaves the bank at), DE and GA both explicitly
+# fall back to delegating into KInContextMutator (see their
+# `len(past_solutions) < 3` guards in differential_evolution.py /
+# genetic_algorithm.py), so sweeping them here would just be kincontext
+# again under a different name. GEPA has no such guard and remains a
+# genuinely distinct single-parent mutator at this bank size.
+PARALLEL_ZEROSHOT_MUTATORS: list[str] = ['kincontext', 'GEPA']
+
+
+def get_args_for_parallel_zeroshot(
+    task_name: str,
+    mutators: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Parallel zero-shot discovery: N independent 1-step OPRO rollouts.
+
+    For each mutator in `mutators` (default PARALLEL_ZEROSHOT_MUTATORS --
+    kincontext and GEPA only, see module docstring above), emits one config
+    per seed in range(PARALLEL_ZEROSHOT_NUM_SEEDS[task_name]) with
+    num_iter=1 and that seed. Everything else (optimizer_llm,
+    inference_model_name, device profile, benchmark(s) for 'prompt')
+    mirrors get_args_for_roll_outs's defaults so results stay comparable.
+    """
+    mutators = mutators or PARALLEL_ZEROSHOT_MUTATORS
+    num_seeds = PARALLEL_ZEROSHOT_NUM_SEEDS[task_name]
+
+    pruning_strategy = 'lowest_scoring'
+    max_population_size = 15
+    sampling_strategy = 'highest_scoring'
+
+    optimizer_llm = get_default_optimizer_llms(task_name)[0]
+    inference_model_name = get_default_inference_model_names(task_name)[0]
+    device_profile = get_device_profile(task_name)
+
+    benchmarks = ['drop', 'gsm8k'] if task_name == 'prompt' else ['drop']
+
+    experiments_to_run = []
+
+    for benchmark, mutator, seed in itertools.product(
+        benchmarks,
+        mutators,
+        range(num_seeds),
+    ):
+        n = get_kincontext_n(task_name) if mutator == 'kincontext' else 5
+        experiments_to_run.append(
+            {
+                'optimizer_name': 'opro',
+                'optimizer_llm': optimizer_llm,
+                'task_name': task_name,
+                'pruning_strategy': pruning_strategy,
+                'max_population_size': max_population_size,
+                'sampling_strategy_name': sampling_strategy,
+                'mutator': mutator,
+                'noise': 0,
+                'num_iter': 1,
+                'benchmark': benchmark,
+                'n': n,
+                'seed': seed,
+                'inference_model_name': inference_model_name,
+                **device_profile,
+            },
+        )
+
+    return experiments_to_run
+
+
 # population_dynamics's curated-population directories use these bookkeeping
 # names (see the iteration-budget curation notebook) rather than main.py's
 # raw --task_name choices, since 'prompt' splits into 'prompt_drop'/
