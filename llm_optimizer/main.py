@@ -142,14 +142,13 @@ if __name__ == '__main__':
         default='all-MiniLM-L6-v2',
         choices=[
             'all-MiniLM-L6-v2',
-            'jinaai/jina-embeddings-v2-base-code',
+            'nomic-ai/CodeRankEmbed',
         ],
         help="""Opro specific: sentence-transformers model used to embed
         candidate solutions for the diversity check (see --sim_thresh).
-        all-MiniLM-L6-v2 for text tasks, jinaai/jina-embeddings-v2-base-code
-        for code tasks (8192-token context; verified against this project's
-        longest real solutions with no truncation). Only loaded (CPU) if
-        --sim_thresh > 0; needs trust_remote_code (see SolutionBank).""",
+        all-MiniLM-L6-v2 for text tasks, nomic-ai/CodeRankEmbed for code
+        tasks. Only loaded (CPU) if --sim_thresh > 0; needs
+        trust_remote_code (see SolutionBank).""",
     )
     parser.add_argument(
         '--llm_judge',

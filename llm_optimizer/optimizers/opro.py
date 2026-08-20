@@ -34,6 +34,17 @@ from llm_optimizer.tasks.base_task import Task
 from llm_optimizer.utils import build_openai_client
 from llm_optimizer.utils import prompt_lm
 
+# NOTE(MS): some diversity-check embed_models (see get_embed_model) are
+# trained asymmetrically -- queries need an instruction prefix, documents
+# don't. SolutionBank.eval_cosine_sim applies this to the candidate
+# solution only (it's a "is anything in the pool like this" query);
+# unlisted embed_models (e.g. all-MiniLM-L6-v2) get no prefix.
+QUERY_PREFIXES: dict[str, str] = {
+    'nomic-ai/CodeRankEmbed': (
+        'Represent this query for searching relevant code: '
+    ),
+}
+
 
 class OPROOptimizer(Optimizer):
     """LLM optimizer.
@@ -261,10 +272,11 @@ class SolutionBank:
         self.task: Any = kwargs.get('task')
         self.task_name = kwargs.get('task_name')
         if self.sim_thresh > 0:
+            self.embed_model_name = kwargs.get('embed_model', '')
             self.embedding_model = SentenceTransformer(
-                kwargs.get('embed_model', ''),
+                self.embed_model_name,
                 device='cpu',
-                # NOTE(MS): jina-embeddings-v2-base-code (the code-task
+                # NOTE(MS): nomic-ai/CodeRankEmbed (the code-task
                 # embed_model, see get_embed_model) ships custom modeling
                 # code and needs this to load; harmless no-op for
                 # all-MiniLM-L6-v2's stock architecture.
@@ -478,9 +490,11 @@ class SolutionBank:
             return False, None, None
 
         # NOTE(MS): no caching -- embeds the full active pool + candidate
-        # in a single batched call every time this runs.
+        # in a single batched call every time this runs. `solution` is the
+        # query ("is anything in the pool like this") -- see QUERY_PREFIXES.
+        query_prefix = QUERY_PREFIXES.get(self.embed_model_name, '')
         embeddings = self.embedding_model.encode(
-            [*active_solution_pool, solution],
+            [*active_solution_pool, query_prefix + solution],
             convert_to_numpy=True,
         )
         pool_vecs, solution_vec = embeddings[:-1], embeddings[-1:]

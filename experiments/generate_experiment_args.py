@@ -94,7 +94,7 @@ def get_kincontext_n(task_name: str) -> int:
 def get_embed_model(task_name: str) -> str:
     """Diversity-check embedding model, per task."""
     if task_name in ('kernelbench', 'cloudcast', 'cantbelate'):
-        return 'jinaai/jina-embeddings-v2-base-code'
+        return 'nomic-ai/CodeRankEmbed'
     return 'all-MiniLM-L6-v2'
 
 
@@ -157,7 +157,7 @@ def get_args_for_roll_outs(
             base_config['problem_id'] = 1
             base_config['level'] = 1
         if task_name == 'tsp':
-            base_config['num_points'] = 200  # 100, 80
+            base_config['num_points'] = 100  # 200, 80
         if task_name in TASK_TOKEN_BUDGETS:
             base_config['max_tokens'] = TASK_TOKEN_BUDGETS[task_name]
 
