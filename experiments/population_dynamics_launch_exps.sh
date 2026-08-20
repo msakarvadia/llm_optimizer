@@ -26,7 +26,7 @@ POP_DIR=/scratch/mansisak/llm_optimizer/currated_initial_populations_baselines
 # Job A: shared-vLLM batch -- same task grouping as launch_exps.sh's Job A
 # (harmbench's abliterated optimizer + classifier, prompt's shared model),
 # just split across prompt's two benchmarks as separate task_name values.
-sbatch --time=0-02:00:00 --nodes=1 --cpus-per-task=64 --mem=100000M --gres=gpu:3 \
+sbatch --time=0-02:00:00 --nodes=1 --cpus-per-task=64 --mem=300000M --gres=gpu:4 \
   --job-name=pop_dyn_shared_llm_batch multi_node_ray_launch_exps.sh population_dynamics \
   --task_name harmbench prompt_drop prompt_gsm8k --population_dir $POP_DIR --num_iter 50
 
