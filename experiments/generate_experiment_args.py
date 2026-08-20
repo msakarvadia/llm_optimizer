@@ -23,14 +23,12 @@ from llm_optimizer.utils import prompt_lm
 # real hardware and needs a dedicated GPU per task.
 TASK_DEVICE_PROFILES: dict[str, dict[str, int | float]] = {
     'kernelbench': {'num_gpus': 1, 'num_cpus': 1},
-    # Higher cpu share throttles concurrency against the colocated shared
-    # vLLM servers' own memory footprint (see pop_dyn_shared_llm_batch).
-    'harmbench': {'num_gpus': 0, 'num_cpus': 0.25},
-    'prompt': {'num_gpus': 0, 'num_cpus': 0.25},
 }
 DEFAULT_DEVICE_PROFILE: dict[str, int | float] = {
     'num_gpus': 0,
-    'num_cpus': 0.1,
+    # Higher cpu share 0.1 hurts concurrency
+    # was letting these OOM-kill the job's
+    'num_cpus': 0.25,
 }
 
 # Cumulative mutator+diversity-judge token budget per task_name (see
