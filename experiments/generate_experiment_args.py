@@ -277,7 +277,7 @@ def run_random_number_bias_experiment(
 PARALLEL_ZEROSHOT_NUM_SEEDS: dict[str, int] = {
     'harmbench': 150,
     'prompt': 150,
-    'cloudcast': 300,
+    'cloudcast': 600,
     'cantbelate': 300,
     'tsp': 200,
 }
