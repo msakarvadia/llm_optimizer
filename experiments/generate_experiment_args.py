@@ -275,11 +275,11 @@ def run_random_number_bias_experiment(
 # exhausting that task's TASK_TOKEN_BUDGETS entry (see
 # get_args_for_parallel_zeroshot's docstring).
 PARALLEL_ZEROSHOT_NUM_SEEDS: dict[str, int] = {
-    'harmbench': 70,
-    'prompt': 70,
-    'cloudcast': 200,
-    'cantbelate': 200,
-    'tsp': 100,
+    'harmbench': 150,
+    'prompt': 150,
+    'cloudcast': 300,
+    'cantbelate': 300,
+    'tsp': 200,
 }
 
 # Only kincontext and GEPA are swept for parallel_zeroshot -- at bank size 1
