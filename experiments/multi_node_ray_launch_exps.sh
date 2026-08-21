@@ -20,6 +20,16 @@
 export RAY_TMPDIR="/scratch/mansisak/r_${SLURM_JOB_ID}"
 mkdir -p "$RAY_TMPDIR"
 
+# Without node-local dataset storage, concurrent workers all race
+# datasets' cache-dir FileLock over NFS, surfacing as ESTALE/ENOLCK.
+export HF_HOME="/tmp/hf_cache_${SLURM_JOB_ID}"
+export HF_DATASETS_CACHE="${HF_HOME}/datasets"
+mkdir -p "$HF_DATASETS_CACHE"
+# Seed from the already-warm NFS cache (single sequential copy, ~10s for
+# ~250MB) so workers lock against pre-populated data instead of racing
+# to download+build from Hub on an empty local cache.
+cp -a /scratch/mansisak/.cache/huggingface/datasets/. "$HF_DATASETS_CACHE/" 2>/dev/null || true
+
 
 # --- SIGNAL INTERCEPTOR ---
 # Covers Ctrl-C (SIGINT) and Slurm's timeout/scancel/preemption signal
