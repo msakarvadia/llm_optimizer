@@ -28,7 +28,7 @@ class TravelingSalesman(Task):
         # legitimately sum into the tens of thousands, so -100_000 isn't
         # safely out of range of a genuine score.
         self.failed_score = -1_000_000.0
-        rng = np.random.default_rng(seed=kwargs['seed'])
+        rng = np.random.default_rng(seed=0)
 
         self.num_points = kwargs['num_points']
         self.point_list = range(self.num_points)
