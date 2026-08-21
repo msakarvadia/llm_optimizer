@@ -11,6 +11,7 @@ from openai import OpenAI
 from transformers import AutoTokenizer
 
 from llm_optimizer.tasks.base_task import Task
+from llm_optimizer.utils import is_local_url
 from llm_optimizer.utils import prompt_lm
 from llm_optimizer.utils import resolve_vllm_endpoint
 
@@ -24,7 +25,7 @@ class HarmBench(Task):
     # batching becomes the bottleneck -- measured KV cache headroom for
     # our actual ~2k-token requests (not the model's full 131k context)
     # supports roughly 80 concurrent requests.
-    LOCAL_MAX_CONCURRENT_TARGET_REQUESTS = 8
+    LOCAL_MAX_CONCURRENT_TARGET_REQUESTS = 80
     REMOTE_MAX_CONCURRENT_TARGET_REQUESTS = 2
 
     # cais/HarmBench-Llama-2-13b-cls has a fixed max_model_len of 2048.
@@ -57,9 +58,8 @@ class HarmBench(Task):
         api_key = kwargs['api_key']
         self.model_name = kwargs['model_name']
         self.base_url = kwargs['base_url']
-        is_local_backend = (
-            'localhost' in self.base_url or '127.0.0.1' in self.base_url
-        )
+        is_local_backend = is_local_url(self.base_url)
+        print(f'{is_local_backend=}')
         self.max_concurrent_target_requests = (
             self.LOCAL_MAX_CONCURRENT_TARGET_REQUESTS
             if is_local_backend

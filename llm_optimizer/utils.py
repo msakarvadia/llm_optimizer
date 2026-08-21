@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import ast
 import atexit
+import ipaddress
 import os
 import re
 import signal
 import subprocess
 import time
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 import numpy as np
@@ -148,6 +150,30 @@ def _extract_token_usage(response: Any) -> dict[str, int]:
     }
 
 
+def is_local_url(base_url: str) -> bool:
+    """Decide whether base_url points at a local/cluster-internal endpoint.
+
+    Single source of truth for the local-vs-remote distinction used to
+    pick proxy behavior (build_openai_client) and request concurrency
+    (tasks/harm_bench.py). A vLLM server started on a Ray worker is
+    reachable at the node's real cluster IP (e.g. 10.1.1.164), not
+    literally 'localhost', so we resolve the hostname and check it
+    against loopback/private-network ranges (RFC 1918) instead of
+    string-matching a fixed set of hostnames.
+    """
+    host = urlparse(base_url).hostname or ''
+    if not host:
+        return False
+    if host.endswith('alcf.anl.gov'):
+        return True
+    try:
+        return ipaddress.ip_address(host).is_private
+    except ValueError:
+        # Not an IP literal (e.g. a public hostname like Google's API) --
+        # 'localhost' resolves to loopback below; anything else is remote.
+        return host == 'localhost'
+
+
 def build_openai_client(api_key: str, base_url: str) -> OpenAI:
     """Build an OpenAI-compatible client for a given base_url.
 
@@ -166,10 +192,7 @@ def build_openai_client(api_key: str, base_url: str) -> OpenAI:
             'variable (see key_env_name in config.yaml for this model).',
         )
 
-    is_local = any(
-        addr in base_url
-        for addr in ['localhost', '127.0.0.1', '0.0.0.0', 'alcf.anl.gov']
-    )
+    is_local = is_local_url(base_url)
     print(f'DEBUG: base_url={base_url} | is_local={is_local}')
 
     if is_local:

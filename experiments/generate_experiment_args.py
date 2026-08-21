@@ -23,6 +23,7 @@ from llm_optimizer.utils import prompt_lm
 # real hardware and needs a dedicated GPU per task.
 TASK_DEVICE_PROFILES: dict[str, dict[str, int | float]] = {
     'kernelbench': {'num_gpus': 1, 'num_cpus': 1},
+    'harmbench': {'num_gpus': 0, 'num_cpus': 0.5},
 }
 DEFAULT_DEVICE_PROFILE: dict[str, int | float] = {
     'num_gpus': 0,
@@ -109,9 +110,10 @@ def get_args_for_roll_outs(
     """Generic roll outs experiment.
 
     'opro' gets the full sampling-strategy x mutator x noise sub-sweep
-    (48 combos, noise is OPRO-only); 'gepa' and 'open_evolve' each
-    contribute one fixed-noise=0 config, for 50 combos total per
-    (benchmark, optimizer_llm, inference_model_name) triple.
+    (48 combos, noise is OPRO-only) per (benchmark, optimizer_llm,
+    inference_model_name) triple. 'gepa' and 'open_evolve' each would
+    contribute one fixed-noise=0 config on top of that, but they're
+    currently commented out below.
     """
     # --- Define Hyperparameter Parameter Search Space
     pruning_strategy = 'lowest_scoring'
@@ -193,13 +195,14 @@ def get_args_for_roll_outs(
 
         # GEPA / OpenEvolve: neither reads mutator/sampling_strategy_name,
         # so each contributes exactly one config here.
-        for optimizer_name in ('gepa', 'open_evolve'):
-            experiments_to_run.append(
-                {
-                    **base_config,
-                    'optimizer_name': optimizer_name,
-                },
-            )
+        # Commented out: skipping gepa/open_evolve runs for now.
+        # for optimizer_name in ('gepa', 'open_evolve'):
+        #     experiments_to_run.append(
+        #         {
+        #             **base_config,
+        #             'optimizer_name': optimizer_name,
+        #         },
+        #     )
 
     return experiments_to_run
 

@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import pathlib
+import random
 import subprocess
 import sys
 from typing import Any
@@ -255,6 +256,14 @@ if __name__ == '__main__':
                 get_args_for_parallel_zeroshot(task_name=task_name),
             )
     print(f'{len(experiments)=}')
+
+    # Shuffle submission order so task_names interleave (Ray otherwise
+    # schedules in submission order, letting one task_name monopolize slots).
+    random.Random(42).shuffle(experiments)
+    print(
+        'shuffled submission order, first 10 task_names: '
+        f'{[exp["task_name"] for exp in experiments[:10]]}',
+    )
 
     # Define the experiments to run along with their resource requirements
     # experiments = [
