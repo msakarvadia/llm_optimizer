@@ -502,6 +502,11 @@ def get_similarity_percentiles(
         model_name,
         device=device,
         model_kwargs=model_kwargs,
+        # nomic-ai/CodeRankEmbed (the code-task embed_model, see
+        # get_embed_model) ships custom modeling code and needs this to
+        # load; harmless no-op for all-MiniLM-L6-v2's stock architecture.
+        # Matches opro.py's own SentenceTransformer call.
+        trust_remote_code=True,
     )
     model.max_seq_length = min(model.max_seq_length, 4096)
     embeddings = model.encode(texts, batch_size=8)
