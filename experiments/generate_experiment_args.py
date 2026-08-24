@@ -39,10 +39,10 @@ DEFAULT_DEVICE_PROFILE: dict[str, int | float] = {
 TASK_TOKEN_BUDGETS: dict[str, int] = {
     'harmbench': 70_000,
     'prompt': 150_000,
-    'cloudcast': 4_000_000,
-    'cantbelate': 2_000_000,
+    'cloudcast': 2_000_000,
+    'cantbelate': 1_000_000,
     'tsp': 1_000_000,
-    'circlepacking': 500_000,
+    'circlepacking': 70_000,
 }
 
 # OPRO-only diversity-check sweep (gepa/open_evolve ignore sim_thresh, see
@@ -71,9 +71,28 @@ def get_default_optimizer_llms(task_name: str) -> list[str]:
     if task_name == 'harmbench':
         return ['mlabonne/NeuralDaredevil-8B-abliterated']
     if task_name == 'prompt':
+        # maybe llama
+        # maybe mistral (smaller)
         return ['gemini-3.5-flash']
+    if task_name == 'circlepacking':
+        # oss-120b
+        # weaker code model
+        return [
+            'gemini-3.5-flash',
+            'gpt-oss-120b',
+        ]  # I ran w/ gemini-3.7 (but fails for parallel)
+    if task_name == 'tsp':
+        # deepseek
+        return [
+            'gemini-3.7-flash',
+            'gemini-3.5-flash',
+            'deepseek/deepseek-v4-flash',
+        ]
+    if task_name in ['cloudcast', 'cantbelate']:
+        # qwen coder task
+        return ['gemini-3.7-flash', 'gemini-3.5-flash', 'Qwen3.6-35B-A3B']
     # return ['gemini-3.1-pro-preview']
-    return ['gemini-3.7-flash']
+    return ['gemini-3.5-flash']
 
 
 def get_default_inference_model_names(task_name: str) -> list[str]:
@@ -305,24 +324,26 @@ PARALLEL_ZEROSHOT_MUTATORS: list[str] = ['kincontext', 'GEPA']
 def get_args_for_parallel_zeroshot(
     task_name: str,
     mutators: list[str] | None = None,
+    optimizer_llms: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Parallel zero-shot discovery: N independent 1-step OPRO rollouts.
 
-    For each mutator in `mutators` (default PARALLEL_ZEROSHOT_MUTATORS --
-    kincontext and GEPA only, see module docstring above), emits one config
-    per seed in range(PARALLEL_ZEROSHOT_NUM_SEEDS[task_name]) with
-    num_iter=1 and that seed. Everything else (optimizer_llm,
-    inference_model_name, device profile, benchmark(s) for 'prompt')
-    mirrors get_args_for_roll_outs's defaults so results stay comparable.
+    For each (mutator, optimizer_llm) in `mutators` x `optimizer_llms`
+    (defaults PARALLEL_ZEROSHOT_MUTATORS -- kincontext and GEPA only, see
+    module docstring above -- and get_default_optimizer_llms(task_name)),
+    emits one config per seed in range(PARALLEL_ZEROSHOT_NUM_SEEDS[task_name])
+    with num_iter=1 and that seed. Everything else (inference_model_name,
+    device profile, benchmark(s) for 'prompt') mirrors get_args_for_roll_outs's
+    defaults so results stay comparable.
     """
     mutators = mutators or PARALLEL_ZEROSHOT_MUTATORS
+    optimizer_llms = optimizer_llms or get_default_optimizer_llms(task_name)
     num_seeds = PARALLEL_ZEROSHOT_NUM_SEEDS[task_name]
 
     pruning_strategy = 'lowest_scoring'
     max_population_size = 15
     sampling_strategy = 'highest_scoring'
 
-    optimizer_llm = get_default_optimizer_llms(task_name)[0]
     inference_model_name = get_default_inference_model_names(task_name)[0]
     device_profile = get_device_profile(task_name)
 
@@ -330,8 +351,9 @@ def get_args_for_parallel_zeroshot(
 
     experiments_to_run = []
 
-    for benchmark, mutator, seed in itertools.product(
+    for benchmark, optimizer_llm, mutator, seed in itertools.product(
         benchmarks,
+        optimizer_llms,
         mutators,
         range(num_seeds),
     ):
