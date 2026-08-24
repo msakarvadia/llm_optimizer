@@ -42,6 +42,7 @@ TASK_TOKEN_BUDGETS: dict[str, int] = {
     'cloudcast': 4_000_000,
     'cantbelate': 2_000_000,
     'tsp': 1_000_000,
+    'circlepacking': 500_000,
 }
 
 # OPRO-only diversity-check sweep (gepa/open_evolve ignore sim_thresh, see
@@ -89,14 +90,24 @@ def get_default_inference_model_names(task_name: str) -> list[str]:
 
 def get_kincontext_n(task_name: str) -> int:
     """Kincontext mutator's in-context history length, per task."""
-    if task_name in ('kernelbench', 'cloudcast', 'cantbelate'):
+    if task_name in (
+        'kernelbench',
+        'cloudcast',
+        'cantbelate',
+        'circlepacking',
+    ):
         return 3
     return 5
 
 
 def get_embed_model(task_name: str) -> str:
     """Diversity-check embedding model, per task."""
-    if task_name in ('kernelbench', 'cloudcast', 'cantbelate'):
+    if task_name in (
+        'kernelbench',
+        'cloudcast',
+        'cantbelate',
+        'circlepacking',
+    ):
         return 'nomic-ai/CodeRankEmbed'
     return 'all-MiniLM-L6-v2'
 
@@ -111,9 +122,8 @@ def get_args_for_roll_outs(
 
     'opro' gets the full sampling-strategy x mutator x noise sub-sweep
     (48 combos, noise is OPRO-only) per (benchmark, optimizer_llm,
-    inference_model_name) triple. 'gepa' and 'open_evolve' each would
-    contribute one fixed-noise=0 config on top of that, but they're
-    currently commented out below.
+    inference_model_name) triple. 'gepa' and 'open_evolve' each
+    contribute one fixed-noise=0 config on top of that.
     """
     # --- Define Hyperparameter Parameter Search Space
     pruning_strategy = 'lowest_scoring'
@@ -195,14 +205,13 @@ def get_args_for_roll_outs(
 
         # GEPA / OpenEvolve: neither reads mutator/sampling_strategy_name,
         # so each contributes exactly one config here.
-        # Commented out: skipping gepa/open_evolve runs for now.
-        # for optimizer_name in ('gepa', 'open_evolve'):
-        #     experiments_to_run.append(
-        #         {
-        #             **base_config,
-        #             'optimizer_name': optimizer_name,
-        #         },
-        #     )
+        for optimizer_name in ('gepa', 'open_evolve'):
+            experiments_to_run.append(
+                {
+                    **base_config,
+                    'optimizer_name': optimizer_name,
+                },
+            )
 
     return experiments_to_run
 
@@ -280,6 +289,7 @@ PARALLEL_ZEROSHOT_NUM_SEEDS: dict[str, int] = {
     'cloudcast': 600,
     'cantbelate': 300,
     'tsp': 200,
+    'circlepacking': 150,
 }
 
 # Only kincontext and GEPA are swept for parallel_zeroshot -- at bank size 1
