@@ -427,12 +427,29 @@ except Exception as e:
 
     results_path = f'{temp_file_path}.results'
 
+    # Pin BLAS/OpenMP thread pools to 1: candidate solutions import
+    # numpy/scipy, and with the default (unset) thread counts each
+    # subprocess tries to grab as many threads as the whole machine
+    # has cores. Under the real batch job dozens of these run
+    # concurrently, so unthrottled threads cause severe contention
+    # (candidates that finish in ~1s standalone blow past the 600s
+    # eval timeout, and can even segfault under load).
+    env = os.environ.copy()
+    for var in (
+        'OMP_NUM_THREADS',
+        'OPENBLAS_NUM_THREADS',
+        'MKL_NUM_THREADS',
+        'NUMEXPR_NUM_THREADS',
+    ):
+        env[var] = '1'
+
     try:
         # Run the script with timeout
         process = subprocess.Popen(
             [sys.executable, temp_file_path],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            env=env,
         )
 
         try:
