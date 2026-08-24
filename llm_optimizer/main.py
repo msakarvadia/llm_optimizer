@@ -16,6 +16,7 @@ from llm_optimizer.optimizers.open_evolve import OpenEvolveOptimizer
 from llm_optimizer.optimizers.opro import OPROOptimizer
 from llm_optimizer.tasks.base_task import Task
 from llm_optimizer.tasks.cant_be_late import CantBeLate
+from llm_optimizer.tasks.circle_packing import CirclePacking
 from llm_optimizer.tasks.cloud_cast import CloudCast
 from llm_optimizer.tasks.harm_bench import HarmBench
 from llm_optimizer.tasks.kernel_bench import KernelBench
@@ -234,6 +235,7 @@ if __name__ == '__main__':
             'prompt',
             'cantbelate',
             'cloudcast',
+            'circlepacking',
         ],
         help="""Name of individual task being optimized.""",
     )
@@ -476,6 +478,7 @@ if __name__ == '__main__':
             'seed': args.seed,
         },
         'function': {},
+        'circlepacking': {},
         'cloudcast': {'seed': args.seed},
         'harmbench': {
             'api_key': args.inference_api_key,
@@ -507,6 +510,7 @@ if __name__ == '__main__':
         'prompt': PromptOptimization,
         'cantbelate': CantBeLate,
         'cloudcast': CloudCast,
+        'circlepacking': CirclePacking,
     }
     # instanitate task
     task_arg = task_args[args.task_name]
