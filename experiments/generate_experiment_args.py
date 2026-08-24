@@ -104,7 +104,10 @@ def get_default_inference_model_names(task_name: str) -> list[str]:
     if task_name == 'harmbench':
         return ['allenai/OLMo-2-0425-1B-DPO']
     if task_name == 'prompt':
-        return ['meta-llama/Llama-3.2-1B-Instruct']
+        return [
+            'allenai/OLMo-2-0425-1B-SFT',
+            'meta-llama/Llama-3.2-1B-Instruct',
+        ]
     return ['google/gemma-4-E4B-it']
 
 
@@ -326,35 +329,46 @@ def get_args_for_parallel_zeroshot(
     task_name: str,
     mutators: list[str] | None = None,
     optimizer_llms: list[str] | None = None,
+    inference_model_names: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Parallel zero-shot discovery: N independent 1-step OPRO rollouts.
 
-    For each (mutator, optimizer_llm) in `mutators` x `optimizer_llms`
-    (defaults PARALLEL_ZEROSHOT_MUTATORS -- kincontext and GEPA only, see
-    module docstring above -- and get_default_optimizer_llms(task_name)),
-    emits one config per seed in range(PARALLEL_ZEROSHOT_NUM_SEEDS[task_name])
-    with num_iter=1 and that seed. Everything else (inference_model_name,
-    device profile, benchmark(s) for 'prompt') mirrors get_args_for_roll_outs's
-    defaults so results stay comparable.
+    For each (mutator, optimizer_llm, inference_model_name) in `mutators` x
+    `optimizer_llms` x `inference_model_names` (defaults
+    PARALLEL_ZEROSHOT_MUTATORS -- kincontext and GEPA only, see module
+    docstring above -- get_default_optimizer_llms(task_name), and
+    get_default_inference_model_names(task_name)), emits one config per seed
+    in range(PARALLEL_ZEROSHOT_NUM_SEEDS[task_name]) with num_iter=1 and that
+    seed. Everything else (device profile, benchmark(s) for 'prompt') mirrors
+    get_args_for_roll_outs's defaults so results stay comparable.
     """
     mutators = mutators or PARALLEL_ZEROSHOT_MUTATORS
     optimizer_llms = optimizer_llms or get_default_optimizer_llms(task_name)
+    inference_model_names = (
+        inference_model_names or get_default_inference_model_names(task_name)
+    )
     num_seeds = PARALLEL_ZEROSHOT_NUM_SEEDS[task_name]
 
     pruning_strategy = 'lowest_scoring'
     max_population_size = 15
     sampling_strategy = 'highest_scoring'
 
-    inference_model_name = get_default_inference_model_names(task_name)[0]
     device_profile = get_device_profile(task_name)
 
     benchmarks = ['drop', 'gsm8k'] if task_name == 'prompt' else ['drop']
 
     experiments_to_run = []
 
-    for benchmark, optimizer_llm, mutator, seed in itertools.product(
+    for (
+        benchmark,
+        optimizer_llm,
+        inference_model_name,
+        mutator,
+        seed,
+    ) in itertools.product(
         benchmarks,
         optimizer_llms,
+        inference_model_names,
         mutators,
         range(num_seeds),
     ):
@@ -402,7 +416,8 @@ def get_args_for_pop_dynamics(
     """Experiments to understand population dynamics.
 
     Runs the same 12-config OPRO sub-sweep (3 sampling_strategies x 4
-    mutators, noise=0, one fixed optimizer_llm per task -- see
+    mutators, noise=0) per (optimizer_llm, inference_model_name) pair from
+    get_default_optimizer_llms/get_default_inference_model_names -- see
     get_args_for_roll_outs) against each curated initial population file, so
     population_dynamics results are directly comparable to general_rollout's:
     the only thing that varies is where OPRO starts from.
@@ -425,8 +440,8 @@ def get_args_for_pop_dynamics(
         task_name,
         (task_name, 'drop'),
     )
-    optimizer_llm = get_default_optimizer_llms(real_task_name)[0]
-    inference_model_name = get_default_inference_model_names(real_task_name)[0]
+    optimizer_llms = get_default_optimizer_llms(real_task_name)
+    inference_model_names = get_default_inference_model_names(real_task_name)
     device_profile = get_device_profile(real_task_name)
 
     task_dir = os.path.join(population_dir, task_name)
@@ -449,10 +464,18 @@ def get_args_for_pop_dynamics(
 
     experiments_to_run = []
 
-    for strategy, mutator, pop_path in itertools.product(
+    for (
+        strategy,
+        mutator,
+        pop_path,
+        optimizer_llm,
+        inference_model_name,
+    ) in itertools.product(
         sampling_strategies,
         mutators,
         init_population_files,
+        optimizer_llms,
+        inference_model_names,
     ):
         n = get_kincontext_n(real_task_name) if mutator == 'kincontext' else 5
 
