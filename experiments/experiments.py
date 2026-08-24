@@ -106,13 +106,14 @@ def run_experiment(
 
     except subprocess.CalledProcessError as e:
         print(
-            'ERROR: main.py crashed on config ',
-            '{args_dict} with exit code {e.returncode}',
+            f'ERROR: main.py crashed on config '
+            f'{args_dict} with exit code {e.returncode}',
         )
         print(f'Command executed: {e.cmd}')
-        print(f'Stderr error trace:\n{e.stderr}')
-        print(f'Exit code: {e.returncode}')
-        print(f'Stdout logs:\n{e.stdout}')
+        # NOTE(MS): capture_output=False above means the child's
+        # stdout/stderr are inherited (streamed live into the Ray
+        # logs), so e.stdout/e.stderr are always None here -- the
+        # actual error trace is already visible inline above.
         raise e
 
 

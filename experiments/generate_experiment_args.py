@@ -24,6 +24,12 @@ from llm_optimizer.utils import prompt_lm
 TASK_DEVICE_PROFILES: dict[str, dict[str, int | float]] = {
     'kernelbench': {'num_gpus': 1, 'num_cpus': 1},
     'harmbench': {'num_gpus': 0, 'num_cpus': 0.5},
+    # circlepacking's evaluate() runs numpy/scipy (LP solve) in a
+    # subprocess; at the default 0.25 share Ray oversubscribes the
+    # node badly enough that concurrent BLAS threads contend for
+    # cores and candidates that finish in ~1s standalone blow past
+    # the 600s eval timeout (or segfault under load).
+    'circlepacking': {'num_gpus': 0, 'num_cpus': 0.5},
 }
 DEFAULT_DEVICE_PROFILE: dict[str, int | float] = {
     'num_gpus': 0,
@@ -91,7 +97,7 @@ def get_default_optimizer_llms(task_name: str) -> list[str]:
         ]
     if task_name in ['cloudcast', 'cantbelate']:
         # qwen coder task
-        return ['gemini-3.7-flash', 'gemini-3.5-flash', 'Qwen3.6-35B-A3B']
+        return ['gemini-3.7-flash', 'gemini-3.5-flash', 'Qwen3_6-35B-A3B']
     # return ['gemini-3.1-pro-preview']
     return ['gemini-3.5-flash']
 
