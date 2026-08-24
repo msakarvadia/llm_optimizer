@@ -80,13 +80,14 @@ def get_default_optimizer_llms(task_name: str) -> list[str]:
         return [
             'gemini-3.5-flash',
             'gpt-oss-120b',
+            'deepseek/deepseek-v4-flash',
         ]  # I ran w/ gemini-3.7 (but fails for parallel)
     if task_name == 'tsp':
         # deepseek
         return [
+            'gpt-oss-120b',
             'gemini-3.7-flash',
             'gemini-3.5-flash',
-            'deepseek/deepseek-v4-flash',
         ]
     if task_name in ['cloudcast', 'cantbelate']:
         # qwen coder task
