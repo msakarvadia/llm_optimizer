@@ -14,6 +14,7 @@ from llm_optimizer.optimizers.base_optimizer import Optimizer
 from llm_optimizer.optimizers.gepa import GEPAOptimizer
 from llm_optimizer.optimizers.open_evolve import OpenEvolveOptimizer
 from llm_optimizer.optimizers.opro import OPROOptimizer
+from llm_optimizer.optimizers.shinka_evolve import ShinkaEvolveOptimizer
 from llm_optimizer.tasks.base_task import Task
 from llm_optimizer.tasks.cant_be_late import CantBeLate
 from llm_optimizer.tasks.circle_packing import CirclePacking
@@ -34,7 +35,7 @@ if __name__ == '__main__':
         '--optimizer_name',
         type=str,
         default='opro',
-        choices=['opro', 'gepa', 'open_evolve'],
+        choices=['opro', 'gepa', 'open_evolve', 'shinka_evolve'],
         help="""Name of llm-baed optimizer""",
     )
     parser.add_argument(
@@ -50,7 +51,7 @@ if __name__ == '__main__':
             'openai/gpt-oss-120b',
             'gpt-oss-120b',
             'deepseek/deepseek-v4-flash',
-            'Qwen3.6-35B-A3B',
+            'Qwen3_6-35B-A3B',
             'meta-llama/Llama-3.1-8B-Instruct',
             'mlabonne/NeuralDaredevil-8B-abliterated',
         ],
@@ -252,7 +253,7 @@ if __name__ == '__main__':
             'openai/gpt-oss-120b',
             'gpt-oss-120b',
             'deepseek/deepseek-v4-flash',
-            'Qwen3.6-35B-A3B',
+            'Qwen3_6-35B-A3B',
             'meta-llama/Llama-3.1-8B-Instruct',
             'mlabonne/NeuralDaredevil-8B-abliterated',
             'google/gemma-4-E4B-it',
@@ -527,6 +528,7 @@ if __name__ == '__main__':
         'opro': OPROOptimizer,
         'gepa': GEPAOptimizer,
         'open_evolve': OpenEvolveOptimizer,
+        'shinka_evolve': ShinkaEvolveOptimizer,
     }
     optimizer_class = optimizers[args.optimizer_name]
 
@@ -554,6 +556,7 @@ if __name__ == '__main__':
         llm_judge_base_url=args.llm_judge_base_url,
         llm_judge_api_key=args.llm_judge_api_key,
         task_name=args.task_name,
+        task_kwargs=task_arg,  # shinka_evolve: needs Task info per subprocess
     )
 
     # Dump resolved args into experiment_dir for later inspection;
