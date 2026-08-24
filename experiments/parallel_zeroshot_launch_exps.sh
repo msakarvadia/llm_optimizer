@@ -18,6 +18,6 @@ sbatch --time=0-00:45:00 --nodes=1 --cpus-per-task=64 --mem=300000M --gres=gpu:4
   parallel_zeroshot --task_name prompt #harmbench
 
 # Job B: CPU-only -- gemini-3.7-flash optimizer, API-hosted, no local model.
-sbatch --time=0-00:45:00 --nodes=1 --cpus-per-task=64 --mem=300000M --gres=gpu:0 \
+sbatch --time=0-02:00:00 --nodes=1 --cpus-per-task=64 --mem=300000M --gres=gpu:0 \
   --job-name=parallel_zeroshot_cpu_only_batch multi_node_ray_launch_exps.sh \
-  parallel_zeroshot --task_name tsp cantbelate cloudcast
+  parallel_zeroshot --task_name tsp cantbelate cloudcast circlepacking
