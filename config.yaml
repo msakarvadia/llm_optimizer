@@ -34,5 +34,14 @@ openai/gpt-oss-120b:
 google/gemma-4-E4B-it:
   key_env_name: "ALCF_API_KEY"
   base_url: "https://inference-api.alcf.anl.gov/resource_server/sophia/vllm/v1"
+deepseek/deepseek-v4-flash:
+  key_env_name: "OPENROUTER_API_KEY"
+  base_url: "https://openrouter.ai/api/v1"
+Qwen3.6-35B-A3B:
+  key_env_name: "VECTOR_API_KEY"
+  base_url: "https://openrouter.ai/api/v1"
+gpt-oss-120b:
+  key_env_name: "VECTOR_API_KEY"
+  base_url: "https://openrouter.ai/api/v1"
 
 # TODO(MS): add more models here, and the relevant keys/urls
