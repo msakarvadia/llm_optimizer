@@ -39,9 +39,9 @@ deepseek/deepseek-v4-flash:
   base_url: "https://openrouter.ai/api/v1"
 Qwen3.6-35B-A3B:
   key_env_name: "VECTOR_API_KEY"
-  base_url: "https://openrouter.ai/api/v1"
+  base_url: "https://proxy.vectorinstitute.ai/v1"
 gpt-oss-120b:
   key_env_name: "VECTOR_API_KEY"
-  base_url: "https://openrouter.ai/api/v1"
+  base_url: "https://proxy.vectorinstitute.ai/v1"
 
 # TODO(MS): add more models here, and the relevant keys/urls
