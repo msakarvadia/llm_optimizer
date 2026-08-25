@@ -103,6 +103,16 @@ def _tournament_sample(
     return population
 
 
+def _random_sample(
+    candidates: list[dict[str, Any]],
+    pop_size: int,
+    seed: int,
+) -> list[dict[str, Any]]:
+    """Uniform-random pick of `pop_size` candidates, score/diversity blind."""
+    rng = random.Random(seed)
+    return rng.sample(candidates, pop_size)
+
+
 def _greedy_sample(
     candidates: list[dict[str, Any]],
     pop_size: int,
@@ -165,11 +175,14 @@ def curate_population(  # noqa: PLR0913
     dedup: str = 'max',
     population_size: int | None = None,
 ) -> list[dict[str, Any]]:
-    """Curate a population via tournament, diversity-rejection, or greedy.
+    """Curate a population.
 
-    (top-N by score, no diversity filtering, `p` unused) sampling. `dedup`
-    is passed straight to `_pool_candidates_within_budget` -- see its
-    docstring for the 'max' (default) vs. 'min' distinction.
+    via tournament, diversity-rejection, greedy, or
+    random sampling: greedy is top-N by score with no diversity filtering,
+    and random is a uniform pick, score/diversity blind -- both baselines
+    against which `p` is unused. `dedup` is passed straight to
+    `_pool_candidates_within_budget` -- see its docstring for the 'max'
+    (default) vs. 'min' distinction.
 
     `population_size`, when given, overrides the adaptive
     `max_population_size` scheme with an exact target instead (still
@@ -178,10 +191,10 @@ def curate_population(  # noqa: PLR0913
     default) to keep the adaptive `min(max_population_size,
     total_candidates)` behavior.
     """
-    if curation_type not in ('tournament', 'diversity', 'greedy'):
+    if curation_type not in ('tournament', 'diversity', 'greedy', 'random'):
         raise ValueError(
-            f"curation_type must be 'tournament', 'diversity', or 'greedy', "
-            f'got {curation_type!r}',
+            f"curation_type must be 'tournament', 'diversity', 'greedy', or "
+            f"'random', got {curation_type!r}",
         )
 
     candidates, cost_tokens = _pool_candidates_within_budget(
@@ -210,6 +223,8 @@ def curate_population(  # noqa: PLR0913
         )
     elif curation_type == 'greedy':
         population = _greedy_sample(candidates, pop_size=curated_size)
+    elif curation_type == 'random':
+        population = _random_sample(candidates, pop_size=curated_size, seed=42)
     else:
         # curation_type == 'diversity'
         solutions = [c['solution'] for c in candidates]
