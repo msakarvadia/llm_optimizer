@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import ast
 import atexit
+import contextlib
+import fcntl
 import ipaddress
 import os
+import pathlib
 import re
 import signal
 import subprocess
 import time
+from collections.abc import Iterator
 from typing import Any
 from urllib.parse import urlparse
 
@@ -174,6 +178,59 @@ def is_local_url(base_url: str) -> bool:
         return host == 'localhost'
 
 
+# Per-host cap on concurrent in-flight requests, measured empirically --
+# both proxies queue/reject above this.
+URL_CONCURRENCY_LIMITS: dict[str, int] = {
+    'inference-api.alcf.anl.gov': 32,
+    'proxy.vectorinstitute.ai': 64,
+}
+_RATE_LIMIT_LOCK_DIR = pathlib.Path(
+    '/scratch/mansisak/llm_optimizer/.rate_limit_locks',
+)
+
+
+@contextlib.contextmanager
+def _url_concurrency_slot(
+    base_url: str,
+    poll_seconds: float = 0.4,
+) -> Iterator[None]:
+    """Cap concurrent in-flight requests to base_url across processes.
+
+    Uses flock() on a fixed pool of per-host lock files since main.py
+    runs are separate OS processes.
+    """
+    host = urlparse(base_url).hostname or ''
+    limit = next(
+        (v for k, v in URL_CONCURRENCY_LIMITS.items() if k in host),
+        None,
+    )
+    if limit is None:
+        yield
+        return
+
+    host_dir = _RATE_LIMIT_LOCK_DIR / host
+    host_dir.mkdir(parents=True, exist_ok=True)
+
+    held_fd = None
+    while held_fd is None:
+        for i in range(limit):
+            fd = open(host_dir / f'slot_{i}.lock', 'w')  # noqa: SIM115
+            try:
+                fcntl.flock(fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                held_fd = fd
+                break
+            except BlockingIOError:
+                fd.close()
+        if held_fd is None:
+            time.sleep(poll_seconds)
+
+    try:
+        yield
+    finally:
+        fcntl.flock(held_fd.fileno(), fcntl.LOCK_UN)
+        held_fd.close()
+
+
 def build_openai_client(api_key: str, base_url: str) -> OpenAI:
     """Build an OpenAI-compatible client for a given base_url.
 
@@ -242,20 +299,21 @@ def prompt_lm(  # noqa: PLR0913
     backoff_seconds = 2.0
     for attempt in range(max_retries + 1):
         try:
-            response = client.chat.completions.create(
-                model=model_name,
-                messages=[
-                    {
-                        'role': 'system',
-                        'content': system_msg,
-                    },
-                    {
-                        'role': 'user',
-                        'content': prompt,
-                    },
-                ],
-                max_tokens=max_tokens,
-            )
+            with _url_concurrency_slot(str(client.base_url)):
+                response = client.chat.completions.create(
+                    model=model_name,
+                    messages=[
+                        {
+                            'role': 'system',
+                            'content': system_msg,
+                        },
+                        {
+                            'role': 'user',
+                            'content': prompt,
+                        },
+                    ],
+                    max_tokens=max_tokens,
+                )
         except (APIStatusError, APIConnectionError):
             if attempt == max_retries:
                 raise

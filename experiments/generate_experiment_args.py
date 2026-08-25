@@ -54,13 +54,16 @@ TASK_TOKEN_BUDGETS: dict[str, int] = {
 # OPRO-only diversity-check sweep (gepa/open_evolve ignore sim_thresh, see
 # opro.py). 'llm_judge' omitted (not None) so experiments.py's str(val)
 # CLI serialization doesn't emit a literal "None" main.py can't parse.
+# NOTE(MS): diversity filtering / llm-judge sweep disabled for now for
+# general_rollout -- only the no-filtering variant runs. Uncomment the
+# rest to re-enable the full sweep.
 DIVERSITY_CHECK_VARIANTS: list[dict[str, Any]] = [
     {'sim_thresh': 0},  # no filtering (current default)
-    {'sim_thresh': -1},  # exact-dedup baseline
-    {'sim_thresh': 0.95},  # fuzzy, no judge
-    {'sim_thresh': 0.95, 'llm_judge': 'gemini-3.5-flash'},  # fuzzy, judged
-    {'sim_thresh': 0.8},  # fuzzy, no judge
-    {'sim_thresh': 0.8, 'llm_judge': 'gemini-3.5-flash'},  # fuzzy, judged
+    # {'sim_thresh': -1},  # exact-dedup baseline
+    # {'sim_thresh': 0.95},  # fuzzy, no judge
+    # {'sim_thresh': 0.95, 'llm_judge': 'gemini-3.5-flash'},  # fuzzy, judged
+    # {'sim_thresh': 0.8},  # fuzzy, no judge
+    # {'sim_thresh': 0.8, 'llm_judge': 'gemini-3.5-flash'},  # fuzzy, judged
 ]
 
 
@@ -79,25 +82,35 @@ def get_default_optimizer_llms(task_name: str) -> list[str]:
     if task_name == 'prompt':
         # maybe llama
         # maybe mistral (smaller)
-        return ['gemini-3.5-flash']
+        return [
+            'gemini-2.5-flash',
+            'gemini-3.5-flash',
+            'gemini-3.7-flash',
+            'meta-llama/Llama-3.1-8B-Instruct',
+        ]
     if task_name == 'circlepacking':
         # oss-120b
         # weaker code model
         return [
-            'gemini-3.5-flash',
+            #'gemini-3.5-flash',
+            'gemini-2.5-flash',
             'gpt-oss-120b',
-            'deepseek/deepseek-v4-flash',
+            'Qwen3_6-35B-A3B',
         ]  # I ran w/ gemini-3.7 (but fails for parallel)
     if task_name == 'tsp':
-        # deepseek
         return [
             'gpt-oss-120b',
             'gemini-3.7-flash',
             'gemini-3.5-flash',
         ]
     if task_name in ['cloudcast', 'cantbelate']:
-        # qwen coder task
-        return ['gemini-3.7-flash', 'gemini-3.5-flash', 'Qwen3_6-35B-A3B']
+        # deepseek
+        return [
+            'gemini-3.7-flash',
+            'gemini-3.5-flash',
+            'deepseek/deepseek-v4-flash',
+            'Kimi-K2.5',
+        ]
     # return ['gemini-3.1-pro-preview']
     return ['gemini-3.5-flash']
 
@@ -112,7 +125,7 @@ def get_default_inference_model_names(task_name: str) -> list[str]:
     if task_name == 'prompt':
         return [
             'allenai/OLMo-2-0425-1B-SFT',
-            'meta-llama/Llama-3.2-1B-Instruct',
+            #'meta-llama/Llama-3.2-1B-Instruct',
         ]
     return ['google/gemma-4-E4B-it']
 
