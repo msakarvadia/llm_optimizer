@@ -10,7 +10,12 @@ sbatch --time=0-12:00:00 --nodes=1 --cpus-per-task=64 --mem=300000M --gres=gpu:4
 # Job B: CPU-only
 sbatch --time=0-12:00:00 --nodes=1 --cpus-per-task=64 --mem=300000M --gres=gpu:0 \
   --job-name=cpu_only_batch multi_node_ray_launch_exps.sh general_rollout \
-  --task_name cantbelate cloudcast tsp circlepacking --num_iter 150
+  --task_name cantbelate cloudcast tsp --num_iter 150
+
+# Job C: CPU-only
+sbatch --time=0-12:00:00 --nodes=1 --cpus-per-task=64 --mem=300000M --gres=gpu:0 \
+  --job-name=circle_cpu_only_batch multi_node_ray_launch_exps.sh general_rollout \
+  --task_name circlepacking --num_iter 150
 
 # Job C: kernelbench -- cuda backend, problem_id 1, real GPU per task.
 # gpu:4 is a concurrency dial (how many kernelbench tasks run at once),

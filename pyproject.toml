@@ -24,6 +24,7 @@ dependencies = [
     "detoxify",
     "pandas",
     "openevolve",
+    "shinka-evolve",
     "gepa",
     "litellm",
     "kernelbench",
