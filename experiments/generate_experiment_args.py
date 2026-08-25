@@ -29,7 +29,7 @@ TASK_DEVICE_PROFILES: dict[str, dict[str, int | float]] = {
     # node badly enough that concurrent BLAS threads contend for
     # cores and candidates that finish in ~1s standalone blow past
     # the 600s eval timeout (or segfault under load).
-    'circlepacking': {'num_gpus': 0, 'num_cpus': 0.5},
+    'circlepacking': {'num_gpus': 0, 'num_cpus': 1},
 }
 DEFAULT_DEVICE_PROFILE: dict[str, int | float] = {
     'num_gpus': 0,
