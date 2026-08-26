@@ -319,6 +319,10 @@ class OpenEvolveOptimizer(Optimizer):
         # timeout just burns through all retries and stalls instead of
         # truncating. Raise it accordingly.
         self.config.llm.timeout = 300
+        # NOTE: evaluator.timeout also defaults to 300s, shorter than
+        # circle_packing.py's 600s subprocess timeout -- raise it so the
+        # outer timeout doesn't abandon (and orphan) a still-running eval.
+        self.config.evaluator.timeout = 630
         self.config.llm.models = [
             LLMModelConfig(
                 name=self.LLM_MODEL,
