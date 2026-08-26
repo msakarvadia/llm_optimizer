@@ -109,7 +109,7 @@ def get_default_optimizer_llms(task_name: str) -> list[str]:
             'gemini-3.7-flash',
             'gemini-3.5-flash',
             'deepseek/deepseek-v4-flash',
-            'Kimi-K2.5',
+            #'Kimi-K2.5',
         ]
     # return ['gemini-3.1-pro-preview']
     return ['gemini-3.5-flash']
