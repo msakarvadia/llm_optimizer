@@ -514,6 +514,8 @@ def get_args_for_pop_dynamics(
             'n': n,
             'init_population_path': pop_path,
             'inference_model_name': inference_model_name,
+            # exact-dedup (see opro.py's sim_thresh == -1)
+            'sim_thresh': -1,
             **device_profile,
         }
         if max_tokens is not None:
