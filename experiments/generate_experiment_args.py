@@ -428,6 +428,17 @@ POP_DYNAMICS_TASK_MAP: dict[str, tuple[str, str]] = {
 }
 
 
+def _sanitize_model_dirname(model_name: str) -> str:
+    """Map a model name (e.g. an optimizer_llm) to its populations/ dirname.
+
+    populations/<task_name>/<seed_mutator>/<model>/ names its <model> level
+    by stripping '.' and '/' from the model name, e.g. 'gemini-3.5-flash' ->
+    'gemini-35-flash', 'meta-llama/Llama-3.1-8B-Instruct' ->
+    'meta-llamaLlama-31-8B-Instruct'.
+    """
+    return model_name.replace('.', '').replace('/', '')
+
+
 def get_args_for_pop_dynamics(
     population_dir: str,
     task_name: str,
@@ -443,11 +454,12 @@ def get_args_for_pop_dynamics(
     the only thing that varies is where OPRO starts from.
 
     Directory discovery, in order: `<population_dir>/<task_name>/budget_*/`
-    (iteration-budget curation layout, unioning every budget's *.json files);
-    else `<population_dir>/<task_name>/` if it exists (flat per-task layout,
-    e.g. currated_initial_populations_baselines/); else `population_dir`
-    itself (original behavior, for callers like curated_initial_populations_v2/
-    <task>/ that point directly at a flat dir of *.json files).
+    or `<population_dir>/<task_name>/` or `population_dir` itself, all shared
+    across every optimizer_llm; or, for the mutator/model-nested layout
+    (`<population_dir>/<task_name>/<seed_mutator>/<model>/budget_*/`, e.g.
+    populations/), each optimizer_llm is paired ONLY with populations whose
+    <model> dir matches its sanitized name (`_sanitize_model_dirname`) --
+    a mismatch prints a warning instead of silently yielding 0 experiments.
     """
     pruning_strategy = 'lowest_scoring'
     max_population_size = 15
@@ -464,21 +476,52 @@ def get_args_for_pop_dynamics(
     inference_model_names = get_default_inference_model_names(real_task_name)
     device_profile = get_device_profile(real_task_name)
 
-    task_dir = os.path.join(population_dir, task_name)
-    budget_dirs = sorted(glob.glob(os.path.join(task_dir, 'budget_*/')))
-    if budget_dirs:
-        search_dirs = budget_dirs
-    elif os.path.isdir(task_dir):
-        search_dirs = [task_dir]
-    else:
-        search_dirs = [population_dir]
+    def _json_files(dirs: list[str]) -> list[str]:
+        return sorted(
+            os.path.join(d, f)
+            for d in dirs
+            for f in os.listdir(d)
+            if f.endswith('.json')
+        )
 
-    init_population_files = sorted(
-        os.path.join(d, f)
-        for d in search_dirs
-        for f in os.listdir(d)
-        if f.endswith('.json')
+    task_dir = os.path.join(population_dir, task_name)
+    top_level_budget_dirs = sorted(
+        glob.glob(os.path.join(task_dir, 'budget_*/')),
     )
+    nested_budget_dirs = sorted(
+        glob.glob(os.path.join(task_dir, '*', '*', 'budget_*/')),
+    )
+
+    # Non-None only for the mutator/model-nested layout, in which case
+    # shared_init_population_files is unused (each optimizer_llm gets its
+    # own file list instead of one list shared by all of them).
+    files_by_optimizer_llm: dict[str, list[str]] | None = None
+    shared_init_population_files: list[str] = []
+    if top_level_budget_dirs:
+        shared_init_population_files = _json_files(top_level_budget_dirs)
+    elif nested_budget_dirs:
+        files_by_optimizer_llm = {}
+        for optimizer_llm in optimizer_llms:
+            model_dirname = _sanitize_model_dirname(optimizer_llm)
+            model_budget_dirs = sorted(
+                glob.glob(
+                    os.path.join(task_dir, '*', model_dirname, 'budget_*/'),
+                ),
+            )
+            if not model_budget_dirs:
+                print(
+                    f'get_args_for_pop_dynamics: no population dir matching '
+                    f'optimizer_llm={optimizer_llm!r} (looked for dirname '
+                    f'{model_dirname!r}) under {task_dir!r} -- skipping '
+                    f'this optimizer_llm for task_name={task_name!r}',
+                )
+            files_by_optimizer_llm[optimizer_llm] = _json_files(
+                model_budget_dirs,
+            )
+    elif os.path.isdir(task_dir):
+        shared_init_population_files = _json_files([task_dir])
+    else:
+        shared_init_population_files = _json_files([population_dir])
 
     max_tokens = TASK_TOKEN_BUDGETS.get(real_task_name)
 
@@ -487,39 +530,43 @@ def get_args_for_pop_dynamics(
     for (
         strategy,
         mutator,
-        pop_path,
         optimizer_llm,
         inference_model_name,
     ) in itertools.product(
         sampling_strategies,
         mutators,
-        init_population_files,
         optimizer_llms,
         inference_model_names,
     ):
         n = get_kincontext_n(real_task_name) if mutator == 'kincontext' else 5
+        pop_paths = (
+            files_by_optimizer_llm[optimizer_llm]
+            if files_by_optimizer_llm is not None
+            else shared_init_population_files
+        )
 
-        config = {
-            'optimizer_name': 'opro',
-            'optimizer_llm': optimizer_llm,
-            'task_name': real_task_name,
-            'pruning_strategy': pruning_strategy,
-            'max_population_size': max_population_size,
-            'sampling_strategy_name': strategy,
-            'mutator': mutator,
-            'noise': noise,
-            'num_iter': num_iter,
-            'benchmark': benchmark,
-            'sampling_prob': sampling_prob,
-            'n': n,
-            'init_population_path': pop_path,
-            'inference_model_name': inference_model_name,
-            # exact-dedup (see opro.py's sim_thresh == -1)
-            'sim_thresh': -1,
-            **device_profile,
-        }
-        if max_tokens is not None:
-            config['max_tokens'] = max_tokens
-        experiments_to_run.append(config)
+        for pop_path in pop_paths:
+            config = {
+                'optimizer_name': 'opro',
+                'optimizer_llm': optimizer_llm,
+                'task_name': real_task_name,
+                'pruning_strategy': pruning_strategy,
+                'max_population_size': max_population_size,
+                'sampling_strategy_name': strategy,
+                'mutator': mutator,
+                'noise': noise,
+                'num_iter': num_iter,
+                'benchmark': benchmark,
+                'sampling_prob': sampling_prob,
+                'n': n,
+                'init_population_path': pop_path,
+                'inference_model_name': inference_model_name,
+                # exact-dedup (see opro.py's sim_thresh == -1)
+                'sim_thresh': -1,
+                **device_profile,
+            }
+            if max_tokens is not None:
+                config['max_tokens'] = max_tokens
+            experiments_to_run.append(config)
 
     return experiments_to_run
