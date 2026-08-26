@@ -303,6 +303,8 @@ def curate_population(  # noqa: PLR0913
     dedup: str = 'max',
     population_size: int | None = None,
     token_budget: int | None = None,
+    reject_sentinel_scores: bool = False,
+    failed_score: float | None = None,
 ) -> list[dict[str, Any]]:
     """Curate a population.
 
@@ -319,6 +321,15 @@ def curate_population(  # noqa: PLR0913
     can't manufacture candidates that don't exist). Leave it `None` (the
     default) to keep the adaptive `min(max_population_size,
     total_candidates)` behavior.
+
+    `reject_sentinel_scores`, when True (and `failed_score` is given),
+    drops pooled candidates whose score equals `failed_score` before any
+    curation strategy sees them. Off by default -- `random`/`greedy` are
+    meant to stay unfiltered baselines either way, and this only matters
+    for `diversity`, where the backfill step in
+    `_diversity_rejection_sample` ranks purely by score with no validity
+    check, and can otherwise pick a failed-eval sentinel once the diverse
+    pool is too thin to fill `population_size` on its own.
 
     Exactly one of `iteration_budget`/`token_budget` is required to decide
     which pooled entries are in-budget; `token_budget` wins if both are
@@ -337,6 +348,8 @@ def curate_population(  # noqa: PLR0913
         dedup=dedup,
         token_budget=token_budget,
     )
+    if reject_sentinel_scores and failed_score is not None:
+        candidates = [c for c in candidates if c['score'] != failed_score]
     total_candidates = len(candidates)
     if total_candidates == 0:
         return []

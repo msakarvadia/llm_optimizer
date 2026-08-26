@@ -5,6 +5,7 @@ from __future__ import annotations
 import itertools
 import json
 import os
+from typing import Any
 
 from population_curation_utils import curate_population
 from population_curation_utils import load_solution_banks_by_glob
@@ -29,31 +30,43 @@ def sanitize_arg(val: str) -> str:
 # generate_experiment_args.py's get_embed_model: code tasks get
 # CodeRankEmbed, everything else gets all-MiniLM-L6-v2 -- used for the
 # 'diversity' curation configs below.
-TASK_SPECS = {
+TASK_SPECS: dict[str, dict[str, Any]] = {
     'tsp': {
         'dir_task': 'tsp',
         'target_model': 'googlegemma-4-E4B-it',
         'dataset': 'drop',
         'embed_model': 'all-MiniLM-L6-v2',
+        # Matches traveling_salesman.py's self.failed_score.
+        'failed_score': -1_000_000.0,
     },
     'cloudcast': {
         'dir_task': 'cloudcast',
         'target_model': 'googlegemma-4-E4B-it',
         'dataset': 'drop',
         'embed_model': 'nomic-ai/CodeRankEmbed',
+        # Matches cloudcast_utils/simulation.py's FAILED_SCORE.
+        'failed_score': -100_000.0,
     },
     'cantbelate': {
         'dir_task': 'cantbelate',
         'target_model': 'googlegemma-4-E4B-it',
         'dataset': 'drop',
         'embed_model': 'nomic-ai/CodeRankEmbed',
+        # Matches cant_be_late_utils/simulation.py's FAILED_SCORE.
+        'failed_score': -100_000.0,
     },
     'circlepacking': {
         'dir_task': 'circlepacking',
         'target_model': 'googlegemma-4-E4B-it',
         'dataset': 'drop',
         'embed_model': 'nomic-ai/CodeRankEmbed',
+        # circle_packing.py forces score to 0.0 on any invalid/failed
+        # evaluation -- see its evaluate()'s early-return branches.
+        'failed_score': 0.0,
     },
+    # prompt_drop/prompt_gsm8k have no 'failed_score': no sentinel is
+    # defined for this task, and scores are continuous benchmark
+    # metrics with no reserved floor value to detect failures.
     'prompt_drop': {
         'dir_task': 'prompt',
         'target_model': 'allenaiOLMo-2-0425-1B-SFT',
@@ -126,7 +139,8 @@ task_budgets = {
 
 population_size = 15
 
-population_curation_args = [
+# random/greedy are unfiltered baselines regardless of task -- shared as-is.
+_BASELINE_CURATION_ARGS = [
     {
         'curation_type': 'random',
         'population_size': population_size,
@@ -137,6 +151,30 @@ population_curation_args = [
         'population_size': population_size,
         'dedup': 'none',
     },
+]
+
+# Sentinel tasks (see TASK_SPECS' failed_score) run diversity once at a
+# tighter p=0.98, with and without sentinel-score rejection, so the two
+# are directly comparable at a fixed threshold.
+_SENTINEL_DIVERSITY_ARGS = [
+    {
+        'curation_type': 'diversity',
+        'population_size': population_size,
+        'dedup': 'max',
+        'p': 0.98,
+        'reject_sentinel_scores': False,
+    },
+    {
+        'curation_type': 'diversity',
+        'population_size': population_size,
+        'dedup': 'max',
+        'p': 0.98,
+        'reject_sentinel_scores': True,
+    },
+]
+
+# Tasks with no identified sentinel keep the original p=0.9/p=0.95 pair.
+_NO_SENTINEL_DIVERSITY_ARGS = [
     {
         'curation_type': 'diversity',
         'population_size': population_size,
@@ -150,6 +188,16 @@ population_curation_args = [
         'p': 0.9,
     },
 ]
+
+
+def get_curation_args(task: str) -> list[dict[str, Any]]:
+    """Baseline configs plus this task's appropriate diversity configs."""
+    diversity_args = (
+        _SENTINEL_DIVERSITY_ARGS
+        if 'failed_score' in TASK_SPECS[task]
+        else _NO_SENTINEL_DIVERSITY_ARGS
+    )
+    return _BASELINE_CURATION_ARGS + diversity_args
 
 
 def build_glob_str(optimizer_llm: str, mutator: str, task: str) -> str:
@@ -200,7 +248,7 @@ if __name__ == '__main__':
         merged_bank = merge_solution_banks_in_order(banks)
 
         for budget in task_budgets[task]:
-            for cfg in population_curation_args:
+            for cfg in get_curation_args(task):
                 population = curate_population(
                     [merged_bank],
                     curation_type=cfg['curation_type'],
@@ -208,6 +256,11 @@ if __name__ == '__main__':
                     population_size=cfg['population_size'],
                     dedup=cfg['dedup'],
                     embed_model_name=TASK_SPECS[task]['embed_model'],
+                    reject_sentinel_scores=cfg.get(
+                        'reject_sentinel_scores',
+                        False,
+                    ),
+                    failed_score=TASK_SPECS[task].get('failed_score'),
                     **({'p': cfg['p']} if 'p' in cfg else {}),
                 )
                 if not population:
@@ -227,9 +280,12 @@ if __name__ == '__main__':
                 os.makedirs(out_dir, exist_ok=True)
 
                 p_suffix = f'_p{cfg["p"]}' if 'p' in cfg else ''
+                sentinel_suffix = (
+                    '_sentinelrej' if cfg.get('reject_sentinel_scores') else ''
+                )
                 filename = (
                     f'{cfg["curation_type"]}_dedup-{cfg["dedup"]}'
-                    f'{p_suffix}.json'
+                    f'{p_suffix}{sentinel_suffix}.json'
                 )
                 out_path = os.path.join(out_dir, filename)
                 with open(out_path, 'w', encoding='utf-8') as f:
