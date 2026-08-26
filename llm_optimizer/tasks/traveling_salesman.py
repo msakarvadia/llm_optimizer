@@ -103,7 +103,7 @@ class TravelingSalesman(Task):
         except Exception as error:
             print('THERE IS AN ERROR PARSING RESPONSE')
             score = self.failed_score
-            error_dict = {'error': error}
+            error_dict = {'error': str(error)}
 
         return score, error_dict, None
 
