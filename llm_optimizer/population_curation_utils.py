@@ -305,7 +305,7 @@ def curate_population(  # noqa: PLR0913
     token_budget: int | None = None,
     reject_sentinel_scores: bool = False,
     failed_score: float | None = None,
-) -> list[dict[str, Any]]:
+) -> dict[str, dict[str, Any]]:
     """Curate a population.
 
     via tournament, diversity-rejection, greedy, or
@@ -314,6 +314,9 @@ def curate_population(  # noqa: PLR0913
     against which `p` is unused. `dedup` is passed straight to
     `_pool_candidates_within_budget` -- see its docstring for the 'max'
     (default) vs. 'min' distinction.
+
+    Returns a dict keyed by stringified index, matching
+    `SolutionBank.read_from_checkpoint`'s expected shape.
 
     `population_size`, when given, overrides the adaptive
     `max_population_size` scheme with an exact target instead (still
@@ -352,7 +355,7 @@ def curate_population(  # noqa: PLR0913
         candidates = [c for c in candidates if c['score'] != failed_score]
     total_candidates = len(candidates)
     if total_candidates == 0:
-        return []
+        return {}
 
     # Dynamic sizing: an explicit population_size overrides the adaptive
     # max_population_size scheme; either way, cap at however many
@@ -397,9 +400,9 @@ def curate_population(  # noqa: PLR0913
             )
 
     # Stamp the pooled token cost onto the last (highest-index) entry only,
-    # matching save_population_json's / SolutionBank.read_from_checkpoint's
-    # convention, so a downstream OPRO run seeded from this population
+    # matching SolutionBank.read_from_checkpoint's convention, so a
+    # downstream OPRO run seeded from this population picks it up.
     if population:
         population[-1]['cumulative_tokens_spent'] = cost_tokens
 
-    return population
+    return {str(i): entry for i, entry in enumerate(population)}
