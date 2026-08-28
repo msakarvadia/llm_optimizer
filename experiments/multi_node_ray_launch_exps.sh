@@ -21,14 +21,32 @@ export RAY_TMPDIR="/scratch/mansisak/r_${SLURM_JOB_ID}"
 mkdir -p "$RAY_TMPDIR"
 
 # Without node-local dataset storage, concurrent workers all race
-# datasets' cache-dir FileLock over NFS, surfacing as ESTALE/ENOLCK.
-export HF_HOME="/tmp/hf_cache_${SLURM_JOB_ID}"
-export HF_DATASETS_CACHE="${HF_HOME}/datasets"
+# datasets' cache-dir FileLock over NFS, surfacing as ESTALE/ENOLCK
+# (datasets.builder.download_and_prepare takes this lock unconditionally,
+# even on a cache hit -- see datasets/builder.py). NOTE(MS): only relocate
+# the datasets sub-cache -- HF_HOME stays on the shared NFS cache so model
+# loads (CodeRankEmbed, all-MiniLM-L6-v2, gemma-4-E4B-it, ...) keep using
+# the already-warm $HF_HOME/hub. huggingface_hub's own cache-hit path
+# (file_download.py) returns before ever taking a lock, so this doesn't
+# reintroduce the same NFS-lock contention for models.
+export HF_HOME="/scratch/mansisak/.cache/huggingface"
+export HF_DATASETS_CACHE="/tmp/hf_cache_${SLURM_JOB_ID}/datasets"
 mkdir -p "$HF_DATASETS_CACHE"
 # Seed from the already-warm NFS cache (single sequential copy, ~10s for
 # ~250MB) so workers lock against pre-populated data instead of racing
 # to download+build from Hub on an empty local cache.
 cp -a /scratch/mansisak/.cache/huggingface/datasets/. "$HF_DATASETS_CACHE/" 2>/dev/null || true
+
+# Everything each task needs (all benchmark datasets + embed/optimizer
+# models) is already fully cached above -- skip the network "is there a
+# newer revision" HEAD request entirely instead of letting every one of
+# the ~500 concurrent worker subprocesses hit the Hub for it and get
+# 429'd. NOTE: a cache MISS becomes a hard failure instead of a slow
+# download under offline mode -- pre-download any new model/dataset added
+# to a sweep before relying on this.
+export HF_HUB_OFFLINE=1
+export HF_DATASETS_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
 
 
 # --- SIGNAL INTERCEPTOR ---
