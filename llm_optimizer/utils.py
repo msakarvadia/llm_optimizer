@@ -328,9 +328,18 @@ def prompt_lm(  # noqa: PLR0913
         raw_output = response.choices[0].message.content
         if raw_output is not None:
             return raw_output, _extract_token_usage(response)
-        raise ValueError(
-            'LM api call returned None instead of a valid string.',
+
+        if attempt == max_retries:
+            raise ValueError(
+                'LM api call returned None instead of a valid string.',
+            )
+        sleep_time = backoff_seconds * (2**attempt)
+        print(
+            f'prompt_lm got empty content on attempt {attempt + 1}/'
+            f'{max_retries + 1}, retrying in {sleep_time:.1f}s...',
         )
+        time.sleep(sleep_time)
+        continue
 
     raise RuntimeError('prompt_lm: exhausted retries without returning')
 

@@ -83,17 +83,17 @@ def get_default_optimizer_llms(task_name: str) -> list[str]:
         # maybe llama
         # maybe mistral (smaller)
         return [
-            'gemini-2.5-flash',
+            #'gemini-2.5-flash',
             'gemini-3.5-flash',
-            'gemini-3.7-flash',
+            #'gemini-3.7-flash',
             'meta-llama/Llama-3.1-8B-Instruct',
         ]
     if task_name == 'circlepacking':
         # oss-120b
         # weaker code model
         return [
-            'gemini-3.5-flash',
-            'gemini-3.7-flash',
+            #'gemini-3.5-flash',
+            #'gemini-3.7-flash',
             'gemini-2.5-flash',
             'gpt-oss-120b',
             'Qwen3_6-35B-A3B',
