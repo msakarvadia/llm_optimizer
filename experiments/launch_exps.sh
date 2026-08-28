@@ -3,19 +3,19 @@
 # Job A: shared-vLLM batch -- per-task inference model defaults now
 # apply (harmbench -> OLMo-2 DPO, prompt -> Llama-3.2-1B), plus
 # harmbench's abliterated optimizer + classifier -> gpu:4
-sbatch --time=0-12:00:00 --nodes=1 --cpus-per-task=64 --mem=480000M --gres=gpu:4 \
+sbatch --time=0-02:00:00 --nodes=1 --cpus-per-task=64 --mem=480000M --gres=gpu:4 \
   --job-name=shared_llm_batch multi_node_ray_launch_exps.sh general_rollout \
-  --task_name  prompt --num_iter 100 # harmbench
+  --task_name  prompt --num_iter 500 # harmbench
 
 # Job B: CPU-only
-sbatch --time=0-12:00:00 --nodes=1 --cpus-per-task=64 --mem=480000M --gres=gpu:0 \
+sbatch --time=0-02:00:00 --nodes=1 --cpus-per-task=64 --mem=480000M --gres=gpu:0 \
   --job-name=cpu_only_batch multi_node_ray_launch_exps.sh general_rollout \
-  --task_name cantbelate cloudcast tsp --num_iter 150
+  --task_name cantbelate  tsp --num_iter 550 # cloudcast
 
 # Job C: CPU-only
-sbatch --time=0-12:00:00 --nodes=1 --cpus-per-task=64 --mem=480000M --gres=gpu:0 \
+sbatch --time=0-02:00:00 --nodes=1 --cpus-per-task=64 --mem=480000M --gres=gpu:0 \
   --job-name=circle_cpu_only_batch multi_node_ray_launch_exps.sh general_rollout \
-  --task_name circlepacking --num_iter 150
+  --task_name circlepacking --num_iter 550
 
 # Job C: kernelbench -- cuda backend, problem_id 1, real GPU per task.
 # gpu:4 is a concurrency dial (how many kernelbench tasks run at once),
