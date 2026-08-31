@@ -16,6 +16,7 @@ import glob
 import itertools
 from typing import Any
 import json
+import os
 import pandas as pd
 
 from generate_experiment_args import get_args_for_pop_dynamics
@@ -83,7 +84,6 @@ for task in tasks:
         population_pattern = "**"
         init_population_path = arg_set.get('init_population_path')
         if init_population_path:
-            print(f"HAS INIT PATH"* 100)
             pop_path_parts = init_population_path.split(os.sep)
             if 'llm_optimizer' in pop_path_parts:
                 last_llm_optimizer_idx = len(pop_path_parts) - pop_path_parts[
@@ -93,12 +93,12 @@ for task in tasks:
             pop_path_parts = [part for part in pop_path_parts if part]
             if pop_path_parts:
                 pop_path_parts[-1] = os.path.splitext(pop_path_parts[-1])[0]
-            population_pattern = '/'.join(population_pattern)
-            print(population_pattern)
+            population_pattern = '/'.join(pop_path_parts)
+            #print(population_pattern)
             #print(pop_path_parts) 
 
         json_files = glob.glob(
-            f'{experiment_dir}/*{folder_pattern}*/**{population_pattern}**/long*.json',
+            f'{experiment_dir}/*{folder_pattern}*/**{population_pattern}/long*.json',
             recursive=True,
         )
         total_files += len(json_files)
