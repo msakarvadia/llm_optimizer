@@ -58,11 +58,11 @@ TASK_TOKEN_BUDGETS: dict[str, int] = {
 # general_rollout -- only the no-filtering variant runs. Uncomment the
 # rest to re-enable the full sweep.
 DIVERSITY_CHECK_VARIANTS: list[dict[str, Any]] = [
-    {'sim_thresh': 0.0},  # no filtering (current default)
-    {'sim_thresh': -1},  # exact-dedup baseline
-    {'sim_thresh': 0.95},  # fuzzy, no judge
+    {'sim_thresh': 0.0, 'llm_judge':None},  # no filtering (current default)
+    {'sim_thresh': -1,'llm_judge':None},  # exact-dedup baseline
+    {'sim_thresh': 0.95, 'llm_judge':None},  # fuzzy, no judge
     {'sim_thresh': 0.95, 'llm_judge': 'gemini-3.5-flash'},  # fuzzy, judged
-    {'sim_thresh': 0.8},  # fuzzy, no judge
+    {'sim_thresh': 0.8, 'llm_judge':None},  # fuzzy, no judge
     {'sim_thresh': 0.8, 'llm_judge': 'gemini-3.5-flash'},  # fuzzy, judged
 ]
 
