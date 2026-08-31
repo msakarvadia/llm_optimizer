@@ -25,7 +25,6 @@ print('🎉 Finished all imports!', flush=True)
 
 ######################################################
 
-experiment_dir = '../../general_rollout'
 output_csv = 'compiled_results.csv'
 
 # get all args
@@ -52,7 +51,12 @@ desired_order = [
 ]
 all_rows = []
 for task in tasks:
+    experiment_dir = '../../general_rollout'
     args = get_args_for_roll_outs(task, 500)
+
+    #experiment_dir = '../../population_dynamics'
+    #population_dir = '../../llm_optimizer/populations/'
+    #args = get_args_for_pop_dynamics(population_dir, task, 500)
     print(f"{task=}, {len(args)=}")
     total_files = 0
     for arg_set in args:
@@ -76,8 +80,25 @@ for task in tasks:
 
         folder_pattern = '*'.join(ordered_dict.values())
 
+        population_pattern = "**"
+        init_population_path = arg_set.get('init_population_path')
+        if init_population_path:
+            print(f"HAS INIT PATH"* 100)
+            pop_path_parts = init_population_path.split(os.sep)
+            if 'llm_optimizer' in pop_path_parts:
+                last_llm_optimizer_idx = len(pop_path_parts) - pop_path_parts[
+                    ::-1
+                ].index('llm_optimizer')
+                pop_path_parts = pop_path_parts[last_llm_optimizer_idx:]
+            pop_path_parts = [part for part in pop_path_parts if part]
+            if pop_path_parts:
+                pop_path_parts[-1] = os.path.splitext(pop_path_parts[-1])[0]
+            population_pattern = '/'.join(population_pattern)
+            print(population_pattern)
+            #print(pop_path_parts) 
+
         json_files = glob.glob(
-            f'{experiment_dir}/*{folder_pattern}*/**/long*.json',
+            f'{experiment_dir}/*{folder_pattern}*/**{population_pattern}**/long*.json',
             recursive=True,
         )
         total_files += len(json_files)
