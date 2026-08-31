@@ -51,12 +51,12 @@ desired_order = [
 ]
 all_rows = []
 for task in tasks:
-    experiment_dir = '../../general_rollout'
-    args = get_args_for_roll_outs(task, 500)
+    #experiment_dir = '../../general_rollout'
+    #args = get_args_for_roll_outs(task, 500)
 
-    #experiment_dir = '../../population_dynamics'
-    #population_dir = '../../llm_optimizer/populations/'
-    #args = get_args_for_pop_dynamics(population_dir, task, 500)
+    experiment_dir = '../../population_dynamics'
+    population_dir = '../../llm_optimizer/populations/'
+    args = get_args_for_pop_dynamics(population_dir, task, 500)
     print(f"{task=}, {len(args)=}")
     total_files = 0
     for arg_set in args:
