@@ -58,7 +58,7 @@ TASK_TOKEN_BUDGETS: dict[str, int] = {
 # general_rollout -- only the no-filtering variant runs. Uncomment the
 # rest to re-enable the full sweep.
 DIVERSITY_CHECK_VARIANTS: list[dict[str, Any]] = [
-    {'sim_thresh': 0},  # no filtering (current default)
+    {'sim_thresh': 0.0},  # no filtering (current default)
     {'sim_thresh': -1},  # exact-dedup baseline
     {'sim_thresh': 0.95},  # fuzzy, no judge
     {'sim_thresh': 0.95, 'llm_judge': 'gemini-3.5-flash'},  # fuzzy, judged
@@ -179,7 +179,7 @@ def get_args_for_roll_outs(
     mutators = ['kincontext', 'DE', 'GA', 'GEPA']
     # OPRO-only sweep -- gepa/open_evolve keep noise fixed at 0 (see
     # base_config below), so they aren't inflated by this axis.
-    opro_noise_values = [0]
+    opro_noise_values = [0.0]
     # opro_noise_values = [0, 0.05, 0.1, 0.25]
 
     optimizer_llms = optimizer_llms or get_default_optimizer_llms(task_name)
