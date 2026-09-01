@@ -7,6 +7,7 @@ import json
 import os
 from typing import Any
 
+import pandas as pd
 from population_curation_utils import curate_population
 from population_curation_utils import load_solution_banks_by_glob
 from population_curation_utils import merge_solution_banks_in_order
@@ -236,6 +237,7 @@ glob_strs = [
 ]
 
 if __name__ == '__main__':
+    all_rows = []
     for optimizer_llm, mutator, task, glob_str in glob_strs:
         banks = load_solution_banks_by_glob(glob_str)
         if not banks:
@@ -246,6 +248,20 @@ if __name__ == '__main__':
         # Merged once per combo, not per budget -- neither the merge nor
         # the glob/load depends on budget, only curation below does.
         merged_bank = merge_solution_banks_in_order(banks)
+        arg_set = {
+            'optimizer_llm': optimizer_llm,
+            'mutator': mutator,
+            'task': task,
+        }
+        print(arg_set)
+        for step, nested_dict in merged_bank.items():
+            if isinstance(nested_dict, dict):
+                row_entry = {
+                    **arg_set,
+                    'step': int(step),  # Keep track of the step index
+                    **nested_dict,
+                }
+                all_rows.append(row_entry)
 
         for budget in task_budgets[task]:
             for cfg in get_curation_args(task):
@@ -290,3 +306,12 @@ if __name__ == '__main__':
                 out_path = os.path.join(out_dir, filename)
                 with open(out_path, 'w', encoding='utf-8') as f:
                     json.dump(population, f, indent=2)
+
+    df = pd.DataFrame(all_rows)
+    print(f'Successfully processed {len(df)} rows.')
+    print(df.head())
+
+    # calculate total memory usage in bytes, sum it, and convert to GB
+    df_size_gb = df.memory_usage(deep=True).sum() / (1024**3)
+    print(f'DataFrame size in memory: {df_size_gb:.4f} GB')
+    df.to_csv('parallel_zeroshot_results.csv', index=False)
