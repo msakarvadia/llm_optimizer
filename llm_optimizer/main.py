@@ -165,6 +165,7 @@ if __name__ == '__main__':
             'gemini-3.5-flash',
             'gemini-3.6-flash',
             'gemini-3.7-flash',
+            'None',
         ],
         help="""Opro specific: LLM used as a second opinion on the
         diversity check when cosine similarity (see --sim_thresh) flags
@@ -460,6 +461,7 @@ if __name__ == '__main__':
         args.api_key = os.getenv(key_env_name)
 
     # Opro specific, API-only: None (default) disables the judge.
+    args.llm_judge = None if args.llm_judge == 'None' else args.llm_judge
     args.llm_judge_base_url = None
     args.llm_judge_api_key = None
     if args.llm_judge is not None:

@@ -249,7 +249,7 @@ def get_args_for_roll_outs(
 
         # GEPA / OpenEvolve: neither reads mutator/sampling_strategy_name,
         # so each contributes exactly one config here.
-        for optimizer_name in ('gepa', 'open_evolve'):
+        for optimizer_name in ('gepa', 'open_evolve', 'shinka_evolve'):
             experiments_to_run.append(
                 {
                     **base_config,
