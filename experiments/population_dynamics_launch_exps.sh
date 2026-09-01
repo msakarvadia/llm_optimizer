@@ -35,7 +35,7 @@ sbatch --time=0-12:00:00 --nodes=1 --cpus-per-task=64 --mem=480000M --gres=gpu:4
 # Job B: CPU-only -- gemini-3.1-pro optimizer, API-hosted, no local model at all.
 sbatch --time=0-12:00:00 --nodes=1 --cpus-per-task=64 --mem=480000M --gres=gpu:0 \
   --job-name=pop_dyn_cpu_only_batch multi_node_ray_launch_exps.sh population_dynamics \
-  --task_name tsp cantbelate --population_dir $POP_DIR --num_iter 550 # cloudcast
+  --task_name cloudcast tsp cantbelate --population_dir $POP_DIR --num_iter 550 # cloudcast
 
 # Job C: circlepacking -- CPU-only, separate job since its populations/ tree
 # and default optimizer_llms differ from Job B's tasks (see launch_exps.sh's
