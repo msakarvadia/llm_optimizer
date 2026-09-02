@@ -48,7 +48,7 @@ TASK_TOKEN_BUDGETS: dict[str, int] = {
     'cloudcast': 2_000_000,
     'cantbelate': 1_000_000,
     'tsp': 1_000_000,
-    'circlepacking': 70_000,
+    'circlepacking': 150_000,  # 70_000,
 }
 
 # OPRO-only diversity-check sweep (gepa/open_evolve ignore sim_thresh, see
@@ -65,6 +65,12 @@ DIVERSITY_CHECK_VARIANTS: list[dict[str, Any]] = [
     {'sim_thresh': 0.8, 'llm_judge': None},  # fuzzy, no judge
     {'sim_thresh': 0.8, 'llm_judge': 'gemini-3.5-flash'},  # fuzzy, judged
 ]
+
+# shinka_evolve's own fixed diversity-check config, always on.
+SHINKA_DIVERSITY_CONFIG: dict[str, Any] = {
+    'sim_thresh': 0.95,
+    'llm_judge': 'gemini-3.5-flash',
+}
 
 
 def get_device_profile(task_name: str) -> dict[str, int | float]:
@@ -250,10 +256,22 @@ def get_args_for_roll_outs(
         # GEPA / OpenEvolve: neither reads mutator/sampling_strategy_name,
         # so each contributes exactly one config here.
         for optimizer_name in ('gepa', 'open_evolve', 'shinka_evolve'):
+            # shinka_evolve always runs with its judge on (sim_thresh=0.95,
+            # matching its own internal default), independent of OPRO's
+            # DIVERSITY_CHECK_VARIANTS sweep above.
+            extra = (
+                {
+                    **SHINKA_DIVERSITY_CONFIG,
+                    'embed_model': get_embed_model(task_name),
+                }
+                if optimizer_name == 'shinka_evolve'
+                else {}
+            )
             experiments_to_run.append(
                 {
                     **base_config,
                     'optimizer_name': optimizer_name,
+                    **extra,
                 },
             )
 
@@ -440,7 +458,7 @@ def _sanitize_model_dirname(model_name: str) -> str:
     return model_name.replace('.', '').replace('/', '')
 
 
-def get_args_for_pop_dynamics(
+def get_args_for_pop_dynamics(  # noqa: C901
     population_dir: str,
     task_name: str,
     num_iter: int,
@@ -523,6 +541,13 @@ def get_args_for_pop_dynamics(
         shared_init_population_files = _json_files([task_dir])
     else:
         shared_init_population_files = _json_files([population_dir])
+
+    # TEMP: only run "diversity" (non-"sentinel") population paths.
+    if files_by_optimizer_llm is not None:
+        files_by_optimizer_llm = {
+            k: [p for p in v if 'diversity' in p and 'sentinel' not in p]
+            for k, v in files_by_optimizer_llm.items()
+        }
 
     max_tokens = TASK_TOKEN_BUDGETS.get(real_task_name)
 

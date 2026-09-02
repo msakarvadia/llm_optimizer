@@ -579,9 +579,8 @@ if __name__ == '__main__':
         json.dump(args_manifest, f, indent=2, sort_keys=True)
 
     # optimize
-    # NOTE(MS): max_tokens is opro-specific (see OPROOptimizer.optimize);
-    # gepa/open_evolve's optimize() only take num_iter.
+    # NOTE(MS): opro/shinka_evolve/gepa take max_tokens; open_evolve does not.
     optimize_kwargs: dict[str, Any] = {'num_iter': args.num_iter}
-    if args.optimizer_name == 'opro':
+    if args.optimizer_name in ('opro', 'shinka_evolve', 'gepa'):
         optimize_kwargs['max_tokens'] = args.max_tokens
     llm_optimizer.optimize(**optimize_kwargs)

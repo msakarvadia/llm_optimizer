@@ -79,6 +79,9 @@ _JUDGE_API_KEY_ENV_VAR = 'SHINKA_LOCAL_JUDGE_API_KEY'
 # own cosine threshold to 0.99 -- tighten it to a more useful default.
 _DEFAULT_CODE_EMBED_SIM_THRESHOLD = 0.95
 
+# chunk size (generations) for incremental checkpointing/max_tokens checks.
+_CHECKPOINT_INTERVAL_GENERATIONS = 10
+
 
 class _LocalSentenceTransformerEmbeddingClient(_ShinkaEmbeddingClient):
     """Drop-in replacement for shinka's EmbeddingClient/AsyncEmbeddingClient.
@@ -241,6 +244,8 @@ class ShinkaEvolveOptimizer(Optimizer):
             failed_score=getattr(task, 'failed_score', None),
         )
         self.solution_bank.read_from_checkpoint(self.experiment_dir)
+        # _query_token_log position consumed; see _populate_solution_bank.
+        self._token_log_idx = 0
 
         self.task_kwargs = kwargs['task_kwargs']
         self.model_name = kwargs['model_name']
@@ -294,10 +299,12 @@ class ShinkaEvolveOptimizer(Optimizer):
         return f'# EVOLVE-BLOCK-START\n{seed}\n# EVOLVE-BLOCK-END'
 
     def _populate_solution_bank(self) -> None:
-        """Rebuild SolutionBank from ShinkaEvolve's own persisted db.
+        """Extend SolutionBank with any db programs not already in it.
 
-        Full rebuild (not incremental) -- idempotent across resumes, and
-        sidesteps needing to track which programs were already added.
+        Incremental, not a rebuild: already-checkpointed entries (loaded by
+        read_from_checkpoint, possibly written by an earlier process) keep
+        their original cumulative_tokens_spent and are never recomputed --
+        only new programs beyond len(never_prune_bank) get appended.
         """
         db_path = os.path.join(self.experiment_dir, 'programs.sqlite')
         if not os.path.exists(db_path):
@@ -309,16 +316,8 @@ class ShinkaEvolveOptimizer(Optimizer):
         programs = sorted(db.get_all_programs(), key=lambda p: p.generation)
         db.close()
 
-        bank = SolutionBank(
-            seed=self.solution_bank.seed,
-            max_population_size=self.solution_bank.max_population_size,
-            pruning_strategy=self.solution_bank.pruning_strategy,
-            failed_score=self.solution_bank.failed_score,
-        )
-        # attribute pending logged tokens to the next program, then reset.
-        # see optimize()'s _patch_shinka_query_metering() call.
-        log_idx = 0
-        for program in programs:
+        already_added = len(self.solution_bank.never_prune_bank)
+        for program in programs[already_added:]:
             llm_result = (program.metadata or {}).get('llm_result') or {}
             own_tokens = (
                 llm_result.get('input_tokens', 0),
@@ -333,9 +332,9 @@ class ShinkaEvolveOptimizer(Optimizer):
             # program's entries along the way.
             if llm_result:
                 matched = False
-                while log_idx < len(_query_token_log):
-                    entry = _query_token_log[log_idx]
-                    log_idx += 1
+                while self._token_log_idx < len(_query_token_log):
+                    entry = _query_token_log[self._token_log_idx]
+                    self._token_log_idx += 1
                     entry_tokens = (
                         entry['input_tokens'],
                         entry['output_tokens'],
@@ -357,23 +356,31 @@ class ShinkaEvolveOptimizer(Optimizer):
                 'reasoning_tokens': llm_result.get('thinking_tokens', 0),
                 'total_tokens': pending,
             }
-            bank.add_solution_score_pair(
+            self.solution_bank.add_solution_score_pair(
                 program.code,
                 program.combined_score,
                 program.public_metrics,
                 None,
                 generation_metadata,
             )
-            bank.prune_population()
-        self.solution_bank = bank
+            self.solution_bank.prune_population()
         self.solution_bank.save_to_json(self.experiment_dir)
 
-    def optimize(self, num_iter: int = 5) -> None:
-        """Optimization loop for task."""
+    def optimize(
+        self,
+        num_iter: int = 5,
+        max_tokens: int | None = None,
+    ) -> None:
+        """Optimization loop for task.
+
+        max_tokens: optional cumulative token budget, checked every
+            _CHECKPOINT_INTERVAL_GENERATIONS generations; None disables it.
+        """
         os.environ[_API_KEY_ENV_VAR] = self.api_key
         spec_path = self._write_task_spec()
         # scoped to this call -- see _patch_shinka_query_metering().
         _query_token_log.clear()
+        self._token_log_idx = 0
         _patch_shinka_query_metering()
 
         # None (default) disables the judge, same convention as OPRO.
@@ -409,7 +416,7 @@ class ShinkaEvolveOptimizer(Optimizer):
         )
         evo_config = EvolutionConfig(
             task_sys_msg=task_sys_msg,
-            num_generations=num_iter,
+            num_generations=0,
             results_dir=self.experiment_dir,
             llm_models=[
                 f'local/{self.model_name}@{self.base_url}'
@@ -429,16 +436,28 @@ class ShinkaEvolveOptimizer(Optimizer):
         db_config = DatabaseConfig(archive_size=self.n)
         job_config = LocalJobConfig(extra_cmd_args={'task_spec': spec_path})
 
-        runner = ShinkaEvolveRunner(
-            evo_config=evo_config,
-            job_config=job_config,
-            db_config=db_config,
-            # SolutionBank rebuild below assumes strictly sequential evals
-            max_evaluation_jobs=1,
-            max_proposal_jobs=self.num_parallel_search,
-            init_program_str=self._wrapped_seed_candidate(),
-            evaluate_str=_EVALUATE_TEMPLATE,
-        )
-        runner.run()
-
-        self._populate_solution_bank()
+        completed_target = 0
+        while completed_target < num_iter:
+            completed_target = min(
+                completed_target + _CHECKPOINT_INTERVAL_GENERATIONS,
+                num_iter,
+            )
+            evo_config.num_generations = completed_target
+            runner = ShinkaEvolveRunner(
+                evo_config=evo_config,
+                job_config=job_config,
+                db_config=db_config,
+                # SolutionBank rebuild below assumes strictly sequential evals
+                max_evaluation_jobs=1,
+                max_proposal_jobs=self.num_parallel_search,
+                init_program_str=self._wrapped_seed_candidate(),
+                evaluate_str=_EVALUATE_TEMPLATE,
+            )
+            runner.run()
+            self._populate_solution_bank()
+            if (
+                max_tokens is not None
+                and self.solution_bank.get_cumulative_tokens_spent()
+                >= max_tokens
+            ):
+                break
