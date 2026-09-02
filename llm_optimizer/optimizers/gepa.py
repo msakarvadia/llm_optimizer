@@ -8,16 +8,30 @@ import time
 from typing import Any
 
 import litellm
+from gepa.core.state import GEPAState
 from gepa.optimize_anything import EngineConfig
 from gepa.optimize_anything import GEPAConfig
 from gepa.optimize_anything import optimize_anything
 from gepa.optimize_anything import ReflectionConfig
 from gepa.strategies.candidate_selector import TopKParetoCandidateSelector
+from gepa.utils.stop_condition import StopperProtocol
 
 from llm_optimizer.optimizers.base_optimizer import Optimizer
 from llm_optimizer.optimizers.opro import SolutionBank
 from llm_optimizer.tasks.base_task import Task
 from llm_optimizer.utils import _extract_token_usage
+
+
+class _TokenBudgetStopper(StopperProtocol):
+    """Stops once solution_bank's cumulative tokens reach max_tokens."""
+
+    def __init__(self, solution_bank: SolutionBank, max_tokens: int) -> None:
+        self._solution_bank = solution_bank
+        self._max_tokens = max_tokens
+
+    def __call__(self, gepa_state: GEPAState[Any, Any]) -> bool:
+        spent = self._solution_bank.get_cumulative_tokens_spent()
+        return spent >= self._max_tokens
 
 
 class GEPAOptimizer(Optimizer):
@@ -166,12 +180,26 @@ class GEPAOptimizer(Optimizer):
 
         return score, dict(extra_info)
 
-    def optimize(self, num_iter: int = 5) -> None:
-        """Optimization loop for task."""
+    def optimize(
+        self,
+        num_iter: int = 5,
+        max_tokens: int | None = None,
+    ) -> None:
+        """Optimization loop for task.
+
+        max_tokens: optional cumulative token budget; None disables it.
+        """
         # TODO(MS): impl convergence criteria
 
         # rng = np.random.default_rng(seed=42)
         rng = random.Random(42)
+
+        stop_callbacks = None
+        if max_tokens is not None:
+            stop_callbacks = _TokenBudgetStopper(
+                self.solution_bank,
+                max_tokens,
+            )
 
         self.config = GEPAConfig(
             engine=EngineConfig(
@@ -206,6 +234,7 @@ class GEPAOptimizer(Optimizer):
                 # NOTE(MS): passing our own callable for resource tracking
                 reflection_lm=self._metered_reflection_lm,
             ),
+            stop_callbacks=stop_callbacks,
         )
 
         task_prompt = (
