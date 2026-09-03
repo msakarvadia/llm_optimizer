@@ -347,7 +347,7 @@ def run_random_number_bias_experiment(
 # get_args_for_parallel_zeroshot's docstring).
 PARALLEL_ZEROSHOT_NUM_SEEDS: dict[str, int] = {
     'harmbench': 150,
-    'prompt': 150,
+    'prompt': 1500,
     'cloudcast': 600,
     'cantbelate': 300,
     'tsp': 200,
