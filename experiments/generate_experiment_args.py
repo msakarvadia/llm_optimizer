@@ -48,7 +48,7 @@ TASK_TOKEN_BUDGETS: dict[str, int] = {
     'cloudcast': 2_000_000,
     'cantbelate': 1_000_000,
     'tsp': 1_000_000,
-    'circlepacking': 150_000,  # 70_000,
+    'circlepacking': 200_000,  # 70_000,
 }
 
 # OPRO-only diversity-check sweep (gepa/open_evolve ignore sim_thresh, see
@@ -588,7 +588,8 @@ def get_args_for_pop_dynamics(  # noqa: C901
                 'init_population_path': pop_path,
                 'inference_model_name': inference_model_name,
                 # exact-dedup (see opro.py's sim_thresh == -1)
-                'sim_thresh': -1,
+                'sim_thresh': 0,
+                #'sim_thresh': -1,
                 **device_profile,
             }
             if max_tokens is not None:
