@@ -82,7 +82,9 @@ for exp_dict in experiments:
     exp_arg_func = exp_dict['experiment_arg_function']
     for task in tasks:
         args = exp_arg_func(
-            population_dir=population_dir, task_name=task, num_iter=500
+            population_dir=population_dir,
+            task_name=task,
+            num_iter=500,
         )
         print(f'{task=}, {len(args)=}')
         total_files = 0
@@ -115,7 +117,7 @@ for exp_dict in experiments:
                 pop_path_parts = init_population_path.split(os.sep)
                 if 'llm_optimizer' in pop_path_parts:
                     last_llm_optimizer_idx = len(
-                        pop_path_parts
+                        pop_path_parts,
                     ) - pop_path_parts[::-1].index('llm_optimizer')
                     pop_path_parts = pop_path_parts[last_llm_optimizer_idx:]
                 pop_path_parts = [part for part in pop_path_parts if part]
@@ -147,13 +149,39 @@ for exp_dict in experiments:
 
                     # 3. Create an independent row for each integer step
                     if isinstance(json_data, dict):
+                        # Find the lowest cumulative_tokens_spent across all steps in this file,
+                        # to use as a fallback for steps missing that field
+                        known_token_values = [
+                            nested_dict['cumulative_tokens_spent']
+                            for nested_dict in json_data.values()
+                            if isinstance(nested_dict, dict)
+                            and 'cumulative_tokens_spent' in nested_dict
+                            and nested_dict['cumulative_tokens_spent']
+                            is not None
+                        ]
+                        fallback_tokens = (
+                            min(known_token_values)
+                            if known_token_values
+                            else None
+                        )
+
                         for step, nested_dict in json_data.items():
                             if isinstance(nested_dict, dict):
+                                # Backfill missing/None cumulative_tokens_spent with the fallback
+                                if (
+                                    nested_dict.get('cumulative_tokens_spent')
+                                    is None
+                                ):
+                                    nested_dict = {
+                                        **nested_dict,
+                                        'cumulative_tokens_spent': fallback_tokens,
+                                    }
+
                                 # Combine base arguments + step info + step metrics
                                 row_entry = {
                                     **arg_set,
                                     'step': int(
-                                        step
+                                        step,
                                     ),  # Keep track of the step index
                                     **nested_dict,
                                     'source_file': file_path,
