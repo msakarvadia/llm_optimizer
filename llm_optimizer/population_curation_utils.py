@@ -255,6 +255,7 @@ def _diversity_rejection_sample(
     embeddings: np.ndarray[Any, Any],
     pop_size: int,
     threshold: float,
+    p: float | None = None,
 ) -> list[dict[str, Any]]:
     """Accept diverse candidates by score; backfill if too few pass."""
     order = sorted(
@@ -282,6 +283,13 @@ def _diversity_rejection_sample(
 
     # Greedy backfill: not enough sufficiently-diverse candidates were
     # found -- fill remaining slots with the next-best scorers
+    n_backfilled = pop_size - len(population)
+    if n_backfilled > 0:
+        print(
+            f'diversity backfill: p={p} threshold={threshold:.4f} '
+            f'pool={len(candidates)} diverse_accepted={len(population)} '
+            f'backfilled={n_backfilled}/{pop_size}',
+        )
     if len(population) < pop_size:
         for i in order:
             if len(population) >= pop_size:
@@ -397,6 +405,7 @@ def curate_population(  # noqa: PLR0913
                 embeddings,
                 pop_size=curated_size,
                 threshold=threshold,
+                p=p,
             )
 
     # Stamp the pooled token cost onto the last (highest-index) entry only,

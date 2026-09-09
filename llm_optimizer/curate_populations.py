@@ -142,42 +142,22 @@ task_budgets = {
 
 population_size = 15
 
-# random/greedy are unfiltered baselines regardless of task -- shared as-is.
-_BASELINE_CURATION_ARGS = [
-    {
-        'curation_type': 'random',
-        'population_size': population_size,
-        'dedup': 'none',
-    },
+# Standardized across every task: greedy (unfiltered top-N, dedup='none')
+# plus diversity at three thresholds (dedup='max', no sentinel-score
+# rejection -- sentinel tasks and non-sentinel tasks now share the exact
+# same 4 configs rather than task-dependent p schedules).
+_CURATION_ARGS = [
     {
         'curation_type': 'greedy',
         'population_size': population_size,
         'dedup': 'none',
     },
-]
-
-# Sentinel tasks (see TASK_SPECS' failed_score) run diversity once at a
-# tighter p=0.98, with and without sentinel-score rejection, so the two
-# are directly comparable at a fixed threshold.
-_SENTINEL_DIVERSITY_ARGS = [
     {
         'curation_type': 'diversity',
         'population_size': population_size,
         'dedup': 'max',
         'p': 0.98,
-        'reject_sentinel_scores': False,
     },
-    {
-        'curation_type': 'diversity',
-        'population_size': population_size,
-        'dedup': 'max',
-        'p': 0.98,
-        'reject_sentinel_scores': True,
-    },
-]
-
-# Tasks with no identified sentinel keep the original p=0.9/p=0.95 pair.
-_NO_SENTINEL_DIVERSITY_ARGS = [
     {
         'curation_type': 'diversity',
         'population_size': population_size,
@@ -188,19 +168,25 @@ _NO_SENTINEL_DIVERSITY_ARGS = [
         'curation_type': 'diversity',
         'population_size': population_size,
         'dedup': 'max',
-        'p': 0.9,
+        'p': 0.8,
     },
 ]
 
 
 def get_curation_args(task: str) -> list[dict[str, Any]]:
-    """Baseline configs plus this task's appropriate diversity configs."""
-    diversity_args = (
-        _SENTINEL_DIVERSITY_ARGS
-        if 'failed_score' in TASK_SPECS[task]
-        else _NO_SENTINEL_DIVERSITY_ARGS
-    )
-    return _BASELINE_CURATION_ARGS + diversity_args
+    """Same 4 curation configs for every task -- see `_CURATION_ARGS`.
+
+    Exception: circlepacking omits p=0.8 -- its candidate pools are thin
+    enough that p=0.8 backfills greedily on 92% of calls (avg ~44% of the
+    population), so it isn't delivering real diversity there.
+    """
+    if task == 'circlepacking':
+        return [
+            cfg
+            for cfg in _CURATION_ARGS
+            if cfg.get('p') != 0.8  # noqa: PLR2004
+        ]
+    return _CURATION_ARGS
 
 
 def build_glob_str(optimizer_llm: str, mutator: str, task: str) -> str:
