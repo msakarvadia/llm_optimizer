@@ -89,7 +89,7 @@ def get_default_optimizer_llms(task_name: str) -> list[str]:
         # maybe llama
         # maybe mistral (smaller)
         return [
-            #'gemini-2.5-flash',
+            'gemini-2.5-flash',
             'gemini-3.5-flash',
             #'gemini-3.7-flash',
             'meta-llama/Llama-3.1-8B-Instruct',
@@ -348,7 +348,7 @@ def run_random_number_bias_experiment(
 PARALLEL_ZEROSHOT_NUM_SEEDS: dict[str, int] = {
     'harmbench': 150,
     'prompt': 1500,
-    'cloudcast': 650,
+    'cloudcast': 550,
     'cantbelate': 300,
     'tsp': 200,
     'circlepacking': 150,
@@ -542,10 +542,10 @@ def get_args_for_pop_dynamics(  # noqa: C901
     else:
         shared_init_population_files = _json_files([population_dir])
 
-    # TEMP: only run "diversity" (non-"sentinel") population paths.
+    # TEMP: only run kincontext-mutator populations -- GEPA blocked for now.
     if files_by_optimizer_llm is not None:
         files_by_optimizer_llm = {
-            k: [p for p in v if 'diversity' in p and 'sentinel' not in p]
+            k: [p for p in v if f'{os.sep}kincontext{os.sep}' in p]
             for k, v in files_by_optimizer_llm.items()
         }
 
