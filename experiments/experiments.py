@@ -254,7 +254,10 @@ if __name__ == '__main__':
             )
         elif args.experiment_name == 'parallel_zeroshot':
             experiments.extend(
-                get_args_for_parallel_zeroshot(task_name=task_name),
+                get_args_for_parallel_zeroshot(
+                    task_name=task_name,
+                    optimizer_llms=args.optimizer_llm,
+                ),
             )
     print(f'{len(experiments)=}')
 

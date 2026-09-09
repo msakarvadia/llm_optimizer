@@ -115,7 +115,7 @@ def get_default_optimizer_llms(task_name: str) -> list[str]:
         return [
             'gemini-3.7-flash',
             'gemini-3.5-flash',
-            #'deepseek/deepseek-v4-flash',
+            'deepseek/deepseek-v4-flash',
             #'Kimi-K2.5',
         ]
     # return ['gemini-3.1-pro-preview']
@@ -348,7 +348,7 @@ def run_random_number_bias_experiment(
 PARALLEL_ZEROSHOT_NUM_SEEDS: dict[str, int] = {
     'harmbench': 150,
     'prompt': 1500,
-    'cloudcast': 600,
+    'cloudcast': 650,
     'cantbelate': 300,
     'tsp': 200,
     'circlepacking': 150,
