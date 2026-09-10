@@ -35,6 +35,10 @@ _ACTIVE_TASK: Task | None = None
 _ACTIVE_SOLUTION_BANK: SolutionBank | None = None
 _ACTIVE_EXPERIMENT_DIR: str | None = None
 
+# chunk size (iterations) for incremental checkpointing/max_tokens checks --
+# same role/name as shinka_evolve.py's _CHECKPOINT_INTERVAL_GENERATIONS.
+_CHECKPOINT_INTERVAL_ITERATIONS = 10
+
 # NOTE(MS): accumulates token usage/wall time across every
 # Completions.create call since the last _pop_generation_metadata() read.
 # None means nothing has been accumulated since the last read (used to
@@ -341,8 +345,16 @@ class OpenEvolveOptimizer(Optimizer):
         # This is the default ratio that comes pre-defined w/ open-evolve
         self.config.database.population_size = 3.5 * num_past_sol
 
-    def optimize(self, num_iter: int = 5) -> None:
-        """Optimization loop for task."""
+    def optimize(
+        self,
+        num_iter: int = 5,
+        max_tokens: int | None = None,
+    ) -> None:
+        """Optimization loop for task.
+
+        max_tokens: optional cumulative token budget, checked every
+            _CHECKPOINT_INTERVAL_ITERATIONS iterations; None disables it.
+        """
         # TODO(MS): impl convergence criteria
 
         global _ACTIVE_TASK, _ACTIVE_SOLUTION_BANK, _ACTIVE_EXPERIMENT_DIR  # noqa: PLW0603 -- see module docstring above
@@ -391,11 +403,36 @@ class OpenEvolveOptimizer(Optimizer):
         # Needed to unify interface b/w GEPA and openevolve
         self.config.diff_based_evolution = False
 
-        # NOTE(MS): this returns an object
-        run_evolution(
-            initial_program=self.task.seed_candidate,
-            evaluator=evaluator,
-            iterations=num_iter,
-            config=self.config,
-            output_dir=self.experiment_dir,
-        )
+        # NOTE(MS): chunked into _CHECKPOINT_INTERVAL_ITERATIONS-sized steps
+        # (same pattern as ShinkaEvolveOptimizer.optimize) so max_tokens can
+        # be checked mid-run. Each call below passes the *absolute* target
+        # iteration count, not a delta -- _resumable_run's checkpoint logic
+        # (see its docstring) subtracts off however many iterations the
+        # last checkpoint already completed, so this only ever runs the
+        # remaining steps.
+        completed_target = 0
+        while completed_target < num_iter:
+            completed_target = min(
+                completed_target + _CHECKPOINT_INTERVAL_ITERATIONS,
+                num_iter,
+            )
+            # NOTE(MS): this returns an object
+            run_evolution(
+                initial_program=self.task.seed_candidate,
+                evaluator=evaluator,
+                iterations=completed_target,
+                config=self.config,
+                output_dir=self.experiment_dir,
+            )
+            # NOTE(MS): evaluator() writes the checkpoint JSONs from a
+            # forked worker process (see module docstring), so
+            # self.solution_bank in this (parent) process is never updated
+            # live -- reload it from disk to see this chunk's tokens before
+            # deciding whether to stop.
+            self.solution_bank.read_from_checkpoint(self.experiment_dir)
+            if (
+                max_tokens is not None
+                and self.solution_bank.get_cumulative_tokens_spent()
+                >= max_tokens
+            ):
+                break

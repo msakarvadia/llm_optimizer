@@ -198,8 +198,9 @@ if __name__ == '__main__':
         '--max_tokens',
         type=int,
         default=None,
-        help="""Opro specific: token budget cutoff (cumulative, across
-        mutator + diversity-judge calls). None (default) disables it and
+        help="""Token budget cutoff (cumulative, across mutator +
+        diversity-judge calls), respected by all four optimizers (opro,
+        gepa, shinka_evolve, open_evolve). None (default) disables it and
         --num_iter is the sole stopping criterion. Whichever of
         --num_iter/--max_tokens is hit first terminates the run.""",
     )
@@ -579,8 +580,9 @@ if __name__ == '__main__':
         json.dump(args_manifest, f, indent=2, sort_keys=True)
 
     # optimize
-    # NOTE(MS): opro/shinka_evolve/gepa take max_tokens; open_evolve does not.
+    # NOTE(MS): all four optimizers take max_tokens now (opro, gepa,
+    # shinka_evolve, open_evolve).
     optimize_kwargs: dict[str, Any] = {'num_iter': args.num_iter}
-    if args.optimizer_name in ('opro', 'shinka_evolve', 'gepa'):
+    if args.optimizer_name in ('opro', 'shinka_evolve', 'gepa', 'open_evolve'):
         optimize_kwargs['max_tokens'] = args.max_tokens
     llm_optimizer.optimize(**optimize_kwargs)
