@@ -38,10 +38,10 @@ DEFAULT_DEVICE_PROFILE: dict[str, int | float] = {
     'num_cpus': 0.25,
 }
 
-# Cumulative mutator+diversity-judge token budget per task_name (see
-# OPROOptimizer.optimize's max_tokens; opro-only -- gepa/open_evolve ignore
-# it, see main.py). Tasks not listed here get no budget, i.e. num_iter
-# remains the sole stopping criterion.
+# Cumulative mutator+diversity-judge token budget per task_name -- respected
+# by all four optimizers' optimize()'s max_tokens (opro, gepa, shinka_evolve,
+# open_evolve; see main.py). Tasks not listed here get no budget, i.e.
+# num_iter remains the sole stopping criterion.
 TASK_TOKEN_BUDGETS: dict[str, int] = {
     'harmbench': 70_000,
     'prompt': 150_000,
@@ -115,7 +115,7 @@ def get_default_optimizer_llms(task_name: str) -> list[str]:
         return [
             'gemini-3.7-flash',
             'gemini-3.5-flash',
-            'deepseek/deepseek-v4-flash',
+            #'deepseek/deepseek-v4-flash',
             #'Kimi-K2.5',
         ]
     # return ['gemini-3.1-pro-preview']

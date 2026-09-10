@@ -180,9 +180,16 @@ def is_local_url(base_url: str) -> bool:
 
 # Per-host cap on concurrent in-flight requests, measured empirically --
 # both proxies queue/reject above this.
+# NOTE(MS): openrouter.ai's real failure mode is its per-account credit
+# budget (a single uncapped-max_tokens request can 402 with
+# limit_source=openrouter_credits, since e.g. deepseek-v4-flash defaults to
+# a 131_072-token max output) -- this cap is a secondary backstop, not the
+# actual fix for that. 70 concurrent ran clean with max_tokens=4096 (see
+# chat history); 128 is set here regardless per explicit request.
 URL_CONCURRENCY_LIMITS: dict[str, int] = {
     'inference-api.alcf.anl.gov': 32,
     'proxy.vectorinstitute.ai': 64,
+    'openrouter.ai': 128,
 }
 _RATE_LIMIT_LOCK_DIR = pathlib.Path(
     '/scratch/mansisak/llm_optimizer/.rate_limit_locks',
