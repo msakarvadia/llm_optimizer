@@ -98,11 +98,9 @@ def get_default_optimizer_llms(task_name: str) -> list[str]:
         # oss-120b
         # weaker code model
         return [
-            #'gemini-3.5-flash',
-            #'gemini-3.7-flash',
+            'Qwen3_6-35B-A3B',
             'gemini-2.5-flash',
             'gpt-oss-120b',
-            'Qwen3_6-35B-A3B',
         ]  # I ran w/ gemini-3.7 (but fails for parallel)
     if task_name == 'tsp':
         return [
@@ -115,9 +113,9 @@ def get_default_optimizer_llms(task_name: str) -> list[str]:
         return [
             'gemini-3.7-flash',
             'gemini-3.5-flash',
-            #'deepseek/deepseek-v4-flash',
-            #'Kimi-K2.5',
+            'deepseek/deepseek-v4-flash',
         ]
+        #'Kimi-K2.5',
     # return ['gemini-3.1-pro-preview']
     return ['gemini-3.5-flash']
 
