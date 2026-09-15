@@ -444,6 +444,32 @@ POP_DYNAMICS_TASK_MAP: dict[str, tuple[str, str]] = {
     'prompt_gsm8k': ('prompt', 'gsm8k'),
 }
 
+# Placeholder: per task_name, optimizer_llm + init_population_path (relative
+# to population_dir, mirroring get_args_for_pop_dynamics) for
+# gepa/open_evolve/shinka_evolve.
+POP_DYNAMICS_PROD_GRADE_TRIPLES: dict[str, dict[str, str]] = {
+    'cantbelate': {
+        'optimizer_llm': 'gemini-3.7-flash',
+        'init_population_path': 'cantbelate/kincontext/gemini-37-flash/budget_500000/greedy_dedup-none.json',  # noqa: E501
+    },
+    'cloudcast': {
+        'optimizer_llm': 'gemini-3.5-flash',
+        'init_population_path': 'cloudcast/kincontext/gemini-35-flash/budget_200000/greedy_dedup-none.json',  # noqa: E501
+    },
+    'tsp': {
+        'optimizer_llm': 'gemini-3.5-flash',
+        'init_population_path': 'tsp/kincontext/gemini-35-flash/budget_100000/greedy_dedup-none.json',  # noqa: E501
+    },
+    'circlepacking': {
+        'optimizer_llm': 'gpt-oss-120b',
+        'init_population_path': 'circlepacking/kincontext/gpt-oss-120b/budget_20000/greedy_dedup-none.json',  # noqa: E501
+    },
+    'prompt_gsm8k': {
+        'optimizer_llm': 'meta-llama/Llama-3.1-8B-Instruct',
+        'init_population_path': 'prompt_gsm8k/kincontext/meta-llamaLlama-31-8B-Instruct/budget_50000/greedy_dedup-none.json',  # noqa: E501
+    },
+}
+
 
 def _sanitize_model_dirname(model_name: str) -> str:
     """Map a model name (e.g. an optimizer_llm) to its populations/ dirname.
@@ -593,5 +619,69 @@ def get_args_for_pop_dynamics(  # noqa: C901
             if max_tokens is not None:
                 config['max_tokens'] = max_tokens
             experiments_to_run.append(config)
+
+    return experiments_to_run
+
+
+def get_args_for_pop_dynamics_prod_grade(
+    population_dir: str,
+    task_name: str,
+    num_iter: int,
+) -> list[dict[str, Any]]:
+    """Hardcoded-pairing pop-dynamics configs for gepa/open_evolve/shinka.
+
+    Looks up one (optimizer_llm, init_population_path) pair per task_name
+    from POP_DYNAMICS_PROD_GRADE_TRIPLES; other args mirror
+    get_args_for_pop_dynamics.
+    """
+    pruning_strategy = 'lowest_scoring'
+    max_population_size = 15
+    noise = 0
+
+    triple = POP_DYNAMICS_PROD_GRADE_TRIPLES[task_name]
+    optimizer_llm = triple['optimizer_llm']
+    init_population_path = os.path.join(
+        population_dir,
+        triple['init_population_path'],
+    )
+
+    real_task_name, benchmark = POP_DYNAMICS_TASK_MAP.get(
+        task_name,
+        (task_name, 'drop'),
+    )
+    inference_model_names = get_default_inference_model_names(real_task_name)
+    device_profile = get_device_profile(real_task_name)
+    max_tokens = TASK_TOKEN_BUDGETS.get(real_task_name)
+
+    experiments_to_run = []
+    for inference_model_name, optimizer_name in itertools.product(
+        inference_model_names,
+        ('gepa', 'open_evolve', 'shinka_evolve'),
+    ):
+        extra = (
+            {
+                **SHINKA_DIVERSITY_CONFIG,
+                'embed_model': get_embed_model(real_task_name),
+            }
+            if optimizer_name == 'shinka_evolve'
+            else {}
+        )
+        config = {
+            'optimizer_name': optimizer_name,
+            'optimizer_llm': optimizer_llm,
+            'task_name': real_task_name,
+            'pruning_strategy': pruning_strategy,
+            'max_population_size': max_population_size,
+            'noise': noise,
+            'num_iter': num_iter,
+            'benchmark': benchmark,
+            'init_population_path': init_population_path,
+            'inference_model_name': inference_model_name,
+            **device_profile,
+            **extra,
+        }
+        if max_tokens is not None:
+            config['max_tokens'] = max_tokens
+        experiments_to_run.append(config)
 
     return experiments_to_run

@@ -15,6 +15,7 @@ import ray
 import yaml
 from generate_experiment_args import get_args_for_parallel_zeroshot
 from generate_experiment_args import get_args_for_pop_dynamics
+from generate_experiment_args import get_args_for_pop_dynamics_prod_grade
 from generate_experiment_args import get_args_for_roll_outs
 from generate_experiment_args import run_random_number_bias_experiment
 
@@ -126,6 +127,7 @@ if __name__ == '__main__':
         choices=[
             'general_rollout',
             'population_dynamics',
+            'population_dynamics_prod_grade',
             'perturb',
             'random_number_bias',
             'parallel_zeroshot',
@@ -236,6 +238,17 @@ if __name__ == '__main__':
             )
             experiments.extend(
                 get_args_for_pop_dynamics(
+                    population_dir,
+                    task_name=task_name,
+                    num_iter=args.num_iter,
+                ),
+            )
+        elif args.experiment_name == 'population_dynamics_prod_grade':
+            population_dir = args.population_dir or (
+                os.path.join(project_root, 'llm_optimizer', 'populations')
+            )
+            experiments.extend(
+                get_args_for_pop_dynamics_prod_grade(
                     population_dir,
                     task_name=task_name,
                     num_iter=args.num_iter,
