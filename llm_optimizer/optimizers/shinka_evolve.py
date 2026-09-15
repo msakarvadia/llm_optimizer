@@ -244,6 +244,21 @@ class ShinkaEvolveOptimizer(Optimizer):
             failed_score=getattr(task, 'failed_score', None),
         )
         self.solution_bank.read_from_checkpoint(self.experiment_dir)
+
+        self.init_population_path = kwargs['init_population_path']
+        already_seeded = bool(self.solution_bank.never_prune_bank)
+        if os.path.isfile(self.init_population_path):
+            with open(self.init_population_path, encoding='utf-8') as f:
+                population = json.load(f)
+            self.task.seed_candidate = max(
+                population.values(),
+                key=lambda e: e['score'],
+            )['solution']
+            if not already_seeded:
+                self.solution_bank.cumulative_tokens_spent += max(
+                    e.get('cumulative_tokens_spent', 0)
+                    for e in population.values()
+                )
         # _query_token_log position consumed; see _populate_solution_bank.
         self._token_log_idx = 0
 
