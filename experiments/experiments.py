@@ -195,7 +195,12 @@ if __name__ == '__main__':
 
     if not ray.is_initialized():
         try:
-            # Ray automatically reads the RAY_ADDRESS="auto"
+            # Ray automatically reads the RAY_ADDRESS="auto"; with no
+            # RAY_ADDRESS set, ray.init() silently autostarts its own
+            # local instance instead of raising, so force that case into
+            # the except branch below (which pins num_cpus correctly).
+            if not os.environ.get('RAY_ADDRESS'):
+                raise RuntimeError('RAY_ADDRESS not set')
             ray.init(runtime_env=runtime_env)
             print('Connected to multi-node Ray Cluster successfully.')
         except Exception as e:
@@ -205,10 +210,14 @@ if __name__ == '__main__':
             )
             if 'RAY_ADDRESS' in os.environ:
                 del os.environ['RAY_ADDRESS']
+            # os.cpu_count() ignores the Slurm cpuset,
+            # so pin to the real core count.
+            n_cpus = len(os.sched_getaffinity(0))
             ray.init(
                 address='local',
                 runtime_env=runtime_env,
                 object_store_memory=2 * 1024 * 1024 * 1024,
+                num_cpus=n_cpus,
             )
 
     total_resources = ray.cluster_resources()

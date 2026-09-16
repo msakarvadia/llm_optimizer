@@ -347,7 +347,7 @@ PARALLEL_ZEROSHOT_NUM_SEEDS: dict[str, int] = {
     'harmbench': 150,
     'prompt': 1500,
     'cloudcast': 550,
-    'cantbelate': 300,
+    'cantbelate': 335,
     'tsp': 200,
     'circlepacking': 150,
 }
