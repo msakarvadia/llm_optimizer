@@ -18,6 +18,7 @@ import os
 
 import pandas as pd
 from generate_experiment_args import get_args_for_pop_dynamics
+from generate_experiment_args import get_args_for_pop_dynamics_prod_grade
 from generate_experiment_args import get_args_for_roll_outs
 
 print('🎉 Finished all imports!', flush=True)
@@ -53,6 +54,18 @@ experiments = [
             'prompt',
         ],
         'population_dir': '..',
+    },
+    {
+        'experiment_dir': '../../population_dynamics_prod_grade',
+        'experiment_arg_function': get_args_for_pop_dynamics_prod_grade,
+        'task_list': [
+            'cantbelate',
+            'cloudcast',
+            'tsp',
+            'circlepacking',
+            'prompt_gsm8k',
+        ],
+        'population_dir': '../../llm_optimizer/populations/',
     },
 ]
 
