@@ -35,7 +35,8 @@ DEFAULT_DEVICE_PROFILE: dict[str, int | float] = {
     'num_gpus': 0,
     # Higher cpu share 0.1 hurts concurrency
     # was letting these OOM-kill the job's
-    'num_cpus': 0.25,
+    'num_cpus': 1,
+    #'num_cpus': 0.25,
 }
 
 # Cumulative mutator+diversity-judge token budget per task_name -- respected

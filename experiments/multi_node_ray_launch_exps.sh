@@ -48,6 +48,17 @@ export HF_HUB_OFFLINE=1
 export HF_DATASETS_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
 
+# circle_packing/cant_be_late/cloudcast eval each mkdtemp()/NamedTemporaryFile()
+# a scratch dir per candidate, write a script into it, subprocess.run it, and
+# read the result back -- all synchronously within one process, so node-local
+# storage is safe (no cross-node handoff). Without this, TMPDIR falls back to
+# the login shell's shared NFS /scratch/mansisak/tmp (~/.bashrc), and dozens
+# of concurrent evals hammering that one shared dir causes filesystem
+# contention (candidates that finish in ~1s standalone blow past eval
+# timeouts under load).
+export TMPDIR="/tmp/tmp_${SLURM_JOB_ID}"
+mkdir -p "$TMPDIR"
+
 
 # --- SIGNAL INTERCEPTOR ---
 # Covers Ctrl-C (SIGINT) and Slurm's timeout/scancel/preemption signal
