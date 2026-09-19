@@ -80,7 +80,7 @@ _JUDGE_API_KEY_ENV_VAR = 'SHINKA_LOCAL_JUDGE_API_KEY'
 _DEFAULT_CODE_EMBED_SIM_THRESHOLD = 0.95
 
 # chunk size (generations) for incremental checkpointing/max_tokens checks.
-_CHECKPOINT_INTERVAL_GENERATIONS = 5
+_CHECKPOINT_INTERVAL_GENERATIONS = 1
 
 
 class _LocalSentenceTransformerEmbeddingClient(_ShinkaEmbeddingClient):
