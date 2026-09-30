@@ -41,8 +41,6 @@ The paper uses the Can't Be Late, CloudCast, Circle Packing, TSP, and Prompt Opt
 
 ## Experimental Configuration/Launch Scripts
 
-# Experiment launch scripts
-
 Experiment resources found in [`experiments`](https://github.com/msakarvadia/llm_optimizer/tree/main/experiments)
 
 - [`experiments.py`](https://github.com/msakarvadia/llm_optimizer/blob/main/experiments/experiments.py): usage: `uv run python experiments.py` (will start local ray cluster); or you can call it from `multi_node_ray_launch_exps.sh` (below) (will initiailze the previously launch ray cluster). To see what experiments are available run `python experiments.py -h`.
