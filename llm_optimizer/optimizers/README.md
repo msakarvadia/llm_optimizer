@@ -10,6 +10,6 @@ We develop a set of harnesses called `Modular` by generalizing the OPRO discover
 ## State of the art Harnesses
 
  We consider three popular, well-engineered discovery harnesses from the recent literature:
- - [`ShinkaEvolve`](https://github.com/msakarvadia/llm_optimizer/blob/main/llm_optimizer/optimizers/shinka_evolve.py)
- - [`OpenEvolve`](https://github.com/msakarvadia/llm_optimizer/blob/main/llm_optimizer/optimizers/open_evolve.py)
- - [`optimize_anything`](https://github.com/msakarvadia/llm_optimizer/blob/main/llm_optimizer/optimizers/gepa.py)
+ - [`ShinkaEvolve`](https://github.com/msakarvadia/llm_optimizer/blob/main/llm_optimizer/optimizers/shinka_evolve.py); [paper](https://openreview.net/forum?id=lKEdGCoDNC), [repo](https://github.com/SakanaAI/ShinkaEvolve/tree/main)
+ - [`OpenEvolve`](https://github.com/msakarvadia/llm_optimizer/blob/main/llm_optimizer/optimizers/open_evolve.py); [repo](https://github.com/algorithmicsuperintelligence/openevolve)
+ - [`optimize_anything`](https://github.com/msakarvadia/llm_optimizer/blob/main/llm_optimizer/optimizers/gepa.py); [paper](https://arxiv.org/abs/2605.19633), [repo](https://gepa-ai.github.io/gepa/)
