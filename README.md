@@ -12,6 +12,20 @@ We give a high-level overview of the code structure in this repository below. Mo
 
 ## Quick Start
 
+## Installation
+
+Package management via `uv`.
+
+For local development:
+```
+git clone https://github.com/msakarvadia/llm_optimizer.git # swap url for clone via SSH
+cd llm_optimizer
+uv sync # OR uv sync --extra dev # for linters tools for code quality
+# to run a python program:
+uv run python <name of file> <--optimion args>
+# OR source .venv/bin/activate then python <name of file> <--optimion args>
+```
+
 ## Harnesses
 
 ### OPRO [Modular]
@@ -54,19 +68,6 @@ Experiment resources found in [`experiments`](https://github.com/msakarvadia/llm
 ## Compiling Data
 Directions for compiling experimental data found in [`figs/compile_data`](https://github.com/msakarvadia/llm_optimizer/tree/main/figs/compile_data)
 
-## Installation
-
-Package management via `uv`.
-
-For local development:
-```
-git clone https://github.com/msakarvadia/llm_optimizer.git # swap url for clone via SSH
-cd llm_optimizer
-uv sync # OR uv sync --extra dev # for linters tools for code quality
-# to run a python program:
-uv run python <name of file> <--optimion args>
-# OR source .venv/bin/activate then python <name of file> <--optimion args>
-```
 
 ## Citation
 
