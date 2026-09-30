@@ -52,6 +52,7 @@ Experiment resources found in [`experiments`](https://github.com/msakarvadia/llm
 - Slurm job launch scripts are detailed and provided in [`experiments`](https://github.com/msakarvadia/llm_optimizer/blob/main/experiments/)
 
 ## Compiling Data
+Directions for compiling experimental data found in [`figs/compile_data`](https://github.com/msakarvadia/llm_optimizer/tree/main/figs/compile_data)
 
 ## Installation
 
