@@ -41,6 +41,19 @@ The paper uses the Can't Be Late, CloudCast, Circle Packing, TSP, and Prompt Opt
 
 ## Experimental Configuration/Launch Scripts
 
+# Experiment launch scripts
+
+Experiment resources found in [`experiments`](https://github.com/msakarvadia/llm_optimizer/tree/main/experiments)
+
+- [`experiments.py`](https://github.com/msakarvadia/llm_optimizer/blob/main/experiments/experiments.py): usage: `uv run python experiments.py` (will start local ray cluster); or you can call it from `multi_node_ray_launch_exps.sh` (below) (will initiailze the previously launch ray cluster). To see what experiments are available run `python experiments.py -h`.
+- [`generate_experiment_args.py`](https://github.com/msakarvadia/llm_optimizer/blob/main/experiments/generate_experiment_args.py): each function in this file generates a set of experiment configurations. These are called in `experiments.py` based on the `--experiment_name` flag you set.
+  -  The [`general_rollout`](https://github.com/msakarvadia/llm_optimizer/blob/main/experiments/generate_experiment_args.py#L162): runs 72 experiments per task w/ varying harnesses and harness interventions
+  - [`parallel_zeroshot`](https://github.com/msakarvadia/llm_optimizer/blob/main/experiments/generate_experiment_args.py#L365): runs several independent experiments where a single (independant) discovery step is done multiple time (e.g., multiple random seeds). The exact number of seeds varies per task, it was eyeballed to exhaust the [task-specific token budgets](https://github.com/msakarvadia/llm_optimizer/blob/main/experiments/generate_experiment_args.py#L45)
+  - [`pop_dynamics`](https://github.com/msakarvadia/llm_optimizer/blob/main/experiments/generate_experiment_args.py#L485): we seed the OPRO harness variants w/ varying initial populations. The initial populations are curated from the [`parallel_zeroshot`](https://github.com/msakarvadia/llm_optimizer/blob/main/llm_optimizer/population_curation_utils.py) script.
+  - [`pop_dynamics_prod_grade`](https://github.com/msakarvadia/llm_optimizer/blob/main/experiments/generate_experiment_args.py#L626) are very similar to above, except we just explicitly set the initial populations. Note that these more sophisticated harnesses are not initialized with the full initial population, but instead just the [highest scoring sample](https://github.com/msakarvadia/llm_optimizer/blob/main/llm_optimizer/optimizers/shinka_evolve.py#L253) from that population.
+- [`multi_node_ray_launch_exps.sh`](https://github.com/msakarvadia/llm_optimizer/blob/main/experiments/multi_node_ray_launch_exps.sh): submits a slurm job, starts a ray cluster (adapts to whatever resources are present) and then launches experiment script. usage: `./multi_node_ray_launch_exps.sh` for local execution on whatever resources are present. Or submit to slurm via `sbatch multi_node_ray_launch_exps.sh`. Change the slurm arguments to match your projects/username/cluster etc. You can change the experiment being launched from the command line (e.g., `sbatch multi_node_ray_launch_exps.sh population_dynammics`). can also run this locally via `./multi_node_ray_launch_exps.sh <optional name of experiment>`. Warning: this script assumes all datasets and models are locally cached and disallows online downloads to circumvent HF rate limits.
+- Slurm job launch scripts are detailed and provided in [`experiments`](https://github.com/msakarvadia/llm_optimizer/blob/main/experiments/)
+
 ## Compiling Data
 
 ## Installation
