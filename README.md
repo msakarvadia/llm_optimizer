@@ -12,6 +12,9 @@ We give a high-level overview of the code structure in this repository below. Mo
 
 ## Quick Start
 
+- Run individual discovery tasks from [`main.py`](https://github.com/msakarvadia/llm_optimizer/blob/main/llm_optimizer/main.py): run via `python main.py` (`python main.py --help` to see experiment arguments). Default arguments run a tweet optimization task (to maximize tweet engagement) using a modular OPRO harness.
+- [`llm_optimizer/README.md`](https://github.com/msakarvadia/llm_optimizer/blob/main/llm_optimizer/README.md): outlines the experimental code, and more detailed READMEs are nested in sub-directories.
+  
 ## Installation
 
 Package management via `uv`.
