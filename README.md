@@ -29,11 +29,20 @@ uv run python <name of file> <--optimion args>
 # OR source .venv/bin/activate then python <name of file> <--optimion args>
 ```
 
-## Harnesses
+## Discovery Harnesses
 
-### OPRO [Modular]
+## `Modular` Harnesses (a generalized version of [OPRO](https://github.com/google-deepmind/opro/tree/main))
 
-### State of the art
+We develop a set of harnesses called `Modular` by generalizing the OPRO discovery framework proposed by [Yang et al. (2024)](https://arxiv.org/abs/2309.03409). We minimally modify the OPRO harness to expose two axes of freedom: 1) [the LLM mutation strategy](https://github.com/msakarvadia/llm_optimizer/blob/main/llm_optimizer/optimizers/opro.py#L141) and 2) the [parent sampling strategy](https://github.com/msakarvadia/llm_optimizer/blob/main/llm_optimizer/optimizers/opro.py#L722) to enable a broader range of harness behavior. 
+- [`Modular`](https://github.com/msakarvadia/llm_optimizer/blob/main/llm_optimizer/optimizers/opro.py): Maintains a population of past iterates in [`SolutionBank`](https://github.com/msakarvadia/llm_optimizer/blob/main/llm_optimizer/optimizers/opro.py#L216), and uses an LLM to sequentially refine past iterates.
+
+## State of the art Harnesses
+
+ We consider three popular, well-engineered discovery harnesses from the recent literature:
+ - [`ShinkaEvolve`](https://github.com/msakarvadia/llm_optimizer/blob/main/llm_optimizer/optimizers/shinka_evolve.py)
+ - [`OpenEvolve`](https://github.com/msakarvadia/llm_optimizer/blob/main/llm_optimizer/optimizers/open_evolve.py)
+ - [`optimize_anything`](https://github.com/msakarvadia/llm_optimizer/blob/main/llm_optimizer/optimizers/gepa.py)
+
 
 ## Discovery Tasks
 The paper uses the Can't Be Late, CloudCast, Circle Packing, TSP, and Prompt Optimization tasks. We provide those, and additional, tasks below. Additional details about the tasks and code attributions can be found in [`llm_optimizer/tasks`](https://github.com/msakarvadia/llm_optimizer/tree/main/llm_optimizer/tasks)
