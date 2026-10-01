@@ -131,3 +131,11 @@ dmypy.json
 # Slurm out files
 *.out
 *.err
+
+# Experiment output -- tens of thousands of run directories, not source
+general_rollout/
+parallel_zeroshot/
+population_dynamics/
+population_dynamics_prod_grade/
+SHINKA_TSP_ROLLOUTS/
+temp_results_dir/
