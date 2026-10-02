@@ -86,5 +86,13 @@ Directions for compiling experimental data found in [`figs/compile_data`](https:
 Please cite this work as:
 
 ```bibtex
-...
+@misc{sakarvadia2026initializationimprovesllmdrivendiscovery,
+      title={Initialization Improves LLM-Driven Discovery}, 
+      author={Mansi Sakarvadia and Marco Ciccone and Colin Raffel},
+      year={2026},
+      eprint={2610.00707},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2610.00707}, 
+}
 ```
