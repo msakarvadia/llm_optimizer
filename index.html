@@ -372,7 +372,24 @@ best_discovery = highest_score(population)
 	<h2 class="title is-3">Parametric vs. In-Context Knowledge</h2>
 	<div class="content has-text-justified">
 		<p>
-...
+<i>Parametric</i> knowledge is the knowledge that an LLM stores in its weights; this knowledge is typically acquired during training via gradient-based updates to the LLM's weights (i.e., parameters).
+			This parametric knowledge can be utilized to accomplish tasks via prompting. 
+			A prompt to a LLM contains <i>in-context</i> knowledge, i.e., knowledge external to the LLM's weights that will have a downstream affect on what the LLM generates.
+<br><br>
+			Here, we will study the role of both <i>parametric</i> and <i>in-context</i> knowledge for LLM-driven discovery.
+			First, we will use a strightforward method: an initial seed iterate is mutated in parallel by an LLM prompted with the task’s
+discovery objective until the token budget is exhausted. Here, the LLM’s context never changes; we call this method 'Parallel'. We compare 'parallel' to the sequential Modular harnesses (described above).
+			Sequential harnesses employ an LLM to mutate discoveries, but instead iteratively update the LLM’s context with information from recent discoveries. 
+			<br>
+			<img src="static/images/seq_v_parallel.png" alt="Sequential discovery can outperform parallel discovery."/>
+			<br>
+			 Since parallel discovery never updates the LLM’s context, its performance is dependent on
+the LLM’s parametric knowledge base. In parallel discovery, the ceiling for discovery performance is
+not known a priori, as reliably measuring the LLM’s parametric knowledge for discovery tasks is challenging. For example, in the above figure we observe that for TSP, parallel discovery typically underperforms
+sequential Modular harnesses, while for Circle Packing the trend is reversed. On the other hand, sequential harnesses enable LLMs to build on the in-context knowledge from past discoveries, rather
+than relying solely on parametric knowledge. For each task, we observed that multiple Modular harnesses outperformed parallel discovery, but that the specific outperforming Modular variants vary. This
+suggests that sequential refinement of a discovery (with in-context knowledge) can outperform parallel optimization.
+		
 		</p>
 	</div>
 
