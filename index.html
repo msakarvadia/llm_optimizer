@@ -380,11 +380,28 @@ best_discovery = highest_score(population)
 	<div class="content has-text-justified">
 		<p>
 Sequential LLM disocovery harnesses are prone to <i>mode collapse</i>: the diversity of new candidates decreases over the course of a sequential trajectory. We hypothesize
-that this is due to the in-context prior, which is present and reinforced throughout sequential discovery,
-but absent in parallel discovery. We find that the parallel schemes generally have more diverse
+that this is due to the in-context prior, which is present and reinforced throughout sequential discovery, but absent in parallel discovery. We find that the parallel schemes generally have more diverse
 populations of discoveries than sequential.
+</p>
+	<img src="static/images/mode_collapse.png" alt="Sequential discovery harnesses suffer from mode collapse."/>
+	</img>
+		<p>	
+We wondered if preventing mode collapse could enable better discoveries. To test this, we compared our simple Modular harnesses to harnesses which prioriotize diversity of iterates.
+			We did this by assessing:
+			<ol>
+  <li>comparing Modular harnesses to three state-of-the-art harnesses that treat population diversity as a key consideration in harness design</li>
+  <li>applying a set of six interventions to Modular harnesses that aim to maintain diversity</li>
+</ol>
+<br><br>
+		 Our results from state-of-the-art harnesses and diversity interventions show that when harnesses start from the same seed, those that explore more (i.e., maintain more diverse populations) do not reliably produce better-performing discoveries. 
+		For example, in we visually stratify all 72 discovery trajectories for the CloudCast task into tertiles by their best score. 
+		
+		<img src="static/images/tertiles.png" alt="High scoring trajectories have higher initial diversity but eventually experience mode collapse."/>
+		
+		We observe that while high-performing trajectories can be marginally more diverse early on, they too can experience mode collapse over time. 
+		This suggests a more nuanced conclusion: in a trajectory with poor initial candidates, mode collapse around those candidates can prevent better ones from ever being discovered, so intervening on the population can help. In contrast, an initially high-performing trajectory may actually be hurt by unnecessary exploration and benefit from more exploitation. 
+		Distinguishing between these two scenarios is challenging, and exploration does not guarantee recovering from poor initial discoveries.
 
-			
 		</p>
 	</div>
 
