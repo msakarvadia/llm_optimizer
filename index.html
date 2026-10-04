@@ -361,7 +361,14 @@ best_discovery = highest_score(population)
 			
 		</p>
 	</div>
-	
+
+	<h2 class="title is-3">Modular: A Suite of Simple Discovery Harnesses</h2>
+	<div class="content has-text-justified">
+		<p>
+...
+		</p>
+	</div>
+		
 	<h2 class="title is-3">Parametric vs. In-Context Knowledge</h2>
 	<div class="content has-text-justified">
 		<p>
@@ -390,7 +397,15 @@ best_discovery = highest_score(population)
 	<h2 class="title is-3">Conclusion</h2>
 		<div class="content has-text-justified">
 			<p>
-        ...
+In this work, we study the relationship between how discovery harnesses are initialized and how this
+affects downstream discovery quality. Through the development and characterization of a suite of discovery harnesses, we validate that sequential refinement of an initial seed discovery is beneficial, but
+sensitive to harness design. Subsequently, we find that harness design choices that aim to enable more
+diverse discoveries, from an initial seed discovery, do not predictably achieve more performant discoveries. However, we notice, across a wide range of (task, LLM) settings, that the best performing discovery
+trajectories can be predicted by their initial discovery quality. Building on this, we propose a simple,
+task-, LLM-, and harness-agnostic method to curate high-performing initial discovery populations. By
+warm-starting discovery harnesses with these initial populations, we consistently improve discovery
+harnesses’ performance.
+
 			<br><br>
         ...
 
