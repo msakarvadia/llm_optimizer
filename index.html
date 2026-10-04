@@ -342,7 +342,20 @@
 			The intuition is that providing an LLM feedback on past discovery iterates, can enable better future iterates.
 			<br><br>
 			Over the course of a discovery trajectory, an LLM can generate many different discovery iterates. A <i>discovery harness</i> can be used to manage this <i>population</i> of past dicoveries.
-				<pre><code>
+
+			
+		</p>
+	</div>
+
+	<h2 class="title is-3">Modular: A Suite of Simple Discovery Harnesses</h2>
+	<div class="content has-text-justified">
+		<p>
+Generally, a harness <i>samples</i> parent discoveries from an <i>active population</i> of past discoveries. An LLM is
+then prompted to <i>mutate</i> these parents to generate an improved <i>discovery</i>, with respect to the objective.
+New discoveries undergo task-specific <i>evaluation</i> and are added to the active population if they meet
+certain criteria. The active population is periodically <i>pruned</i> when it reaches capacity.
+
+							<pre><code>
 # A general discovery harness
 					
 argument descriptions:
@@ -358,14 +371,11 @@ while tokens_used &lt; token_budget:
 
 best_discovery = highest_score(population)
 				</code></pre>
-			
-		</p>
-	</div>
-
-	<h2 class="title is-3">Modular: A Suite of Simple Discovery Harnesses</h2>
-	<div class="content has-text-justified">
-		<p>
-...
+		<br>
+		We develop a set of harnesses called 'Modular' by generalizing the OPRO discovery
+framework proposed by <a href="https://arxiv.org/pdf/2309.03409">Yang et al. (2024)</a>. We minimally modify the OPRO harness to expose two axes
+of freedom: 1) the LLM mutation strategy and 2) the parent sampling strategy to enable a broader range
+of harness behavior. We consider four mutation strategies and three sampling strategies, resulting in a suite of 12 unique harnesses (detailed in the paper).
 		</p>
 	</div>
 		
