@@ -1,5 +1,5 @@
 #!/bin/bash
-cd /scratch/mansisak/llm_optimizer || exit 1
+cd /project/aip-craffel/mansisak/llm_optimizer || exit 1
 source .venv/bin/activate
 
 # Job-scoped RAY_TMPDIR so back-to-back runs don't collide on one cluster.
@@ -25,5 +25,5 @@ export TRANSFORMERS_OFFLINE=1
 export TMPDIR="/tmp/tmp_${SLURM_JOB_ID:-$$}"
 mkdir -p "$TMPDIR"
 
- python experiments/experiments.py --experiment_name population_dynamics_prod_grade --task_name prompt_gsm8k --population_dir /scratch/mansisak/llm_optimizer/llm_optimizer/populations --num_iter 550
+ python experiments/experiments.py --experiment_name population_dynamics_prod_grade --task_name prompt_gsm8k --population_dir /project/aip-craffel/mansisak/llm_optimizer/llm_optimizer/populations --num_iter 550
 #python experiments/experiments.py --experiment_name general_rollout --task_name cantbelate --optimizer_llm deepseek/deepseek-v4-flash --num_iter 550

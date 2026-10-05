@@ -116,8 +116,8 @@ echo "Starting experiment execution: $EXP_NAME $*"
 echo "Submitting Ray application..."
 # FIX: Change 'ray://' to 'auto' so Ray targets the GCS port (6379) directly
 export RAY_ADDRESS="auto"
-source /scratch/mansisak/llm_optimizer/.venv/bin/activate
-python -u /scratch/mansisak/llm_optimizer/experiments/experiments.py --experiment_name $EXP_NAME "$@"
+source /project/aip-craffel/mansisak/llm_optimizer/.venv/bin/activate
+python -u /project/aip-craffel/mansisak/llm_optimizer/experiments/experiments.py --experiment_name $EXP_NAME "$@"
 
 # Clean up the cluster when done normally
 echo "Application finished. Stopping Ray cluster..."

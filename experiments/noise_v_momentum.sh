@@ -16,7 +16,7 @@
 # tasks: tweet, kernelbench
 
 module load cuda
-cd /scratch/mansisak/llm_optimizer/llm_optimizer
+cd /project/aip-craffel/mansisak/llm_optimizer/llm_optimizer
 
 # Static parameters
 NUM_ITER=50
