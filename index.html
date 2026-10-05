@@ -457,12 +457,11 @@ from that parallel pool. The intialized pool can be sequentially refined witha d
 	<img src="static/images/initialization.png" alt="Initialized discovery can outperform purely sequential and parallel discovery."/>		
 <br>
 We plot the average maximal score achieved across all 12 Modular
-variants across different initialization budgets; r = 0 means sequential trajectories with no initialization
-and r = 1 means fully parallel discovery. In all settings, we find that reframing the purpose of parallel
-discovery from a technique that aims to push the discovery ceiling higher (r = 1) to an initialization
-method that raises the discovery floor (0 &lt; r &lt; 1) can be beneficial. Initializing a
-serial trajectory with a high-performing population consistently outperforms both purely serial (r = 0)
-and purely parallel (r = 1) discovery, given enough additional serial compute. We find that parallel discovery typically converges in discovery quality, and
+variants across different initialization budgets. In all settings, we find that reframing the purpose of parallel
+discovery from a technique that aims to push the discovery ceiling higher (Init. Budget = 100%) to an initialization
+method that raises the discovery floor (0% &lt; Init. Budget &lt; 100%) can be beneficial. Initializing a
+serial trajectory with a high-performing population consistently outperforms both purely serial (Init. Budget = 0%)
+and purely parallel (Init. Budget = 100%) discovery, given enough additional serial compute. We find that parallel discovery typically converges in discovery quality, and
 therefore propose using convergence as a simple indicator of the ideal initialization budget (see details in paper).
 <br><br>
 			
