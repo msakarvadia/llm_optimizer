@@ -437,7 +437,37 @@ We wondered if preventing mode collapse could enable better discoveries. To test
 	<h2 class="title is-3">Initialization Raises the Discovery Floor</h2>
 	<div class="content has-text-justified">
 		<p>
-...
+We find that the quality of the initially discovered population can be predictive of
+downstream discovery quality in a trajectory. We analyze 75 different discovery harness variants (from the prevous section) below.
+	<img src="static/images/init_predicts_performance.png" alt="Initial discovery quality can predict downstream quality."/>
+			<br>
+	we visualize the relationship between the initial score
+of the first 15 discoveries in a discovery trajectory vs. the maximum downstream score achieved by that trajectory. While
+no specific harness consistently performed well, the highest-performing harnesses for each (task, LLM) pairing tended to be those that produced a high-performing
+initial population.		
+			<br><br>
+Since the eventual success of a sequential trajectory can be correlated with the performance of the first
+few discovered candidates, we posit that it is beneficial to initialize a high-performing population
+of candidates that can better condition downstream sequential optimization. We propose a simple and extensible initialization method
+that can be adopted with any sequential discovery harness: first generate a pool of discoveries using
+parallel discovery with a fraction of the discovery budget (r); then curate a performant population pinit of size m by greedily selecting candidates
+from that parallel pool. The intialized pool can be sequentially refined witha discovery harness with the remaining discovery budget.
+	<img src="static/images/initalization.png" alt="Initialized discovery can outperform purely sequential and parallel discovery."/>		
+<br>
+We plot the average maximal score achieved across all 12 Modular
+variants across different initialization budgets; r = 0 means sequential trajectories with no initialization
+and r = 1 means fully parallel discovery. In all settings, we find that reframing the purpose of parallel
+discovery from a technique that aims to push the discovery ceiling higher (r = 1) to an initialization
+method that raises the discovery floor (0 &lt; r &lt; 1) can be beneficial. Initializing a
+serial trajectory with a high-performing population consistently outperforms both purely serial (r = 0)
+and purely parallel (r = 1) discovery, given enough additional serial compute. We find that parallel discovery typically converges in discovery quality, and
+therefore propose using convergence as a simple indicator of the ideal initialization budget (see details in paper).
+<br><br>
+			Finally, we validate that explicit population initialization outperforms the implicit initialization achieved by SOTA harnesses below.
+			<img src="static/images/sota_init.png" alt="Initializing state-of-the-art harnesses improves discoveries."/>	
+			
+			
+
 		</p>
 	</div>
 	
