@@ -50,7 +50,7 @@ runtime_env = {
     'env_vars': {
         # Ray to bypass internal uv environment generation hook entirely
         'RAY_ENABLE_UV_RUN_RUNTIME_ENV': '0',
-        'VIRTUAL_ENV': '/scratch/mansisak/llm_optimizer/.venv',
+        'VIRTUAL_ENV': os.path.join(project_root, '.venv'),
         'PYTHONPATH': project_root,
     },
 }
@@ -243,7 +243,7 @@ if __name__ == '__main__':
             )
         elif args.experiment_name == 'population_dynamics':
             population_dir = args.population_dir or (
-                '/scratch/mansisak/llm_optimizer/curated_initial_populations_v2'
+                os.path.join(project_root, 'curated_initial_populations_v2')
             )
             experiments.extend(
                 get_args_for_pop_dynamics(
@@ -265,7 +265,7 @@ if __name__ == '__main__':
             )
         elif args.experiment_name == 'perturb':
             population_dir = args.population_dir or (
-                '/scratch/mansisak/llm_optimizer/curated_perturbation_populations'
+                os.path.join(project_root, 'curated_perturbation_populations')
             )
             experiments.extend(
                 get_args_for_pop_dynamics(

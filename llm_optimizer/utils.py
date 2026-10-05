@@ -191,8 +191,8 @@ URL_CONCURRENCY_LIMITS: dict[str, int] = {
     'proxy.vectorinstitute.ai': 64,
     'openrouter.ai': 128,
 }
-_RATE_LIMIT_LOCK_DIR = pathlib.Path(
-    '/scratch/mansisak/llm_optimizer/.rate_limit_locks',
+_RATE_LIMIT_LOCK_DIR = (
+    pathlib.Path(__file__).resolve().parent.parent / '.rate_limit_locks'
 )
 
 
