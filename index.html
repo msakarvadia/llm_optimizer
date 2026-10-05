@@ -113,50 +113,58 @@
   {
     "@context": "https://schema.org",
     "@type": "ScholarlyArticle",
-    "headline": "PAPER_TITLE",
-    "description": "BRIEF_DESCRIPTION_OF_YOUR_RESEARCH_CONTRIBUTION_AND_FINDINGS",
+    "headline": "Initialization Improves LLM-Driven Discovery",
+    "description": "We propose a simple, task-, LLM-, and harness-agnostic method to curate high-performing initial discovery populations which can be used to successfully warm-start and boost the performance of LLM-driven discovery.",
     "author": [
       {
         "@type": "Person",
-        "name": "FIRST_AUTHOR_NAME",
+        "name": "Mansi Sakarvadia",
         "affiliation": {
           "@type": "Organization",
-          "name": "INSTITUTION_NAME"
+          "name": "University of Chicago"
         }
       },
       {
         "@type": "Person",
-        "name": "SECOND_AUTHOR_NAME",
+        "name": "Marco Ciccone",
         "affiliation": {
           "@type": "Organization",
-          "name": "INSTITUTION_NAME"
+          "name": "Vector Institute"
         }
-      }
+      },
+	  {
+        "@type": "Person",
+        "name": "Colin Raffel",
+        "affiliation": {
+          "@type": "Organization",
+          "name": "University of Toronto"
+        }
+      },
     ],
-    "datePublished": "2024-01-01",
+    "datePublished": "2026-10-01",
     "publisher": {
       "@type": "Organization",
       "name": "CONFERENCE_OR_JOURNAL_NAME"
     },
-    "url": "https://YOUR_DOMAIN.com/YOUR_PROJECT_PAGE",
-    "image": "https://YOUR_DOMAIN.com/static/images/social_preview.png",
-    "keywords": ["KEYWORD1", "KEYWORD2", "KEYWORD3", "machine learning", "computer vision"],
-    "abstract": "FULL_ABSTRACT_TEXT_HERE",
+    "url": "https://mansisak.com/llm_optimizer/",
+    "image": "https://mansisak.com/llm_optimizer/static/images/initialization_modular.png",
+    "keywords": ["Auto-Research", "LLM-Driven Discovery", "LLMs", "machine learning", "language modeling"],
+    "abstract": "Large Language Models (LLMs) have been used for novel discovery of algorithms, theorems, drugs, and other tasks through the use of harnesses that prompt an LLM to iteratively optimize an objective. In this work, we study the relationship between the population of previous iterates and eventual discovery success. We generalize past work on harness design to develop a suite of 12 harnesses called 'Modular' and characterize their performance across 5 diverse discovery tasks, finding that discovery success is brittle and sensitive to harness design. We uncover mode collapse, characterized by a dramatic drop in the diversity of iterates, as a common failure mode. We find that popular state-of-the-art harnesses and diversity-inducing harness interventions, which aim to prolong this collapse, yield inconsistent gains. Our results instead uncover that the performance of early discoveries is predictive of eventual success. We therefore propose a universally applicable intervention that performs an initial stage of parallel exploration in order to initialize subsequent iterative optimization. Our method provides consistent gains across many harnesses and target applications, confirming the importance of initialization in LLM-driven discovery.",
     "citation": "BIBTEX_CITATION_HERE",
     "isAccessibleForFree": true,
     "license": "https://creativecommons.org/licenses/by/4.0/",
     "mainEntity": {
       "@type": "WebPage",
-      "@id": "https://YOUR_DOMAIN.com/YOUR_PROJECT_PAGE"
+      "@id": "https://mansisak.com/llm_optimizer/"
     },
     "about": [
       {
         "@type": "Thing",
-        "name": "RESEARCH_AREA_1"
+        "name": "LLMs"
       },
       {
         "@type": "Thing", 
-        "name": "RESEARCH_AREA_2"
+        "name": "Scientific Discovery"
       }
     ]
   }
@@ -167,7 +175,7 @@
   {
     "@context": "https://schema.org",
     "@type": "Organization",
-    "name": "INSTITUTION_OR_LAB_NAME",
+    "name": "University of Chicago",
     "url": "https://YOUR_INSTITUTION_WEBSITE.com",
     "logo": "https://YOUR_DOMAIN.com/static/images/favicon.ico",
     "sameAs": [
