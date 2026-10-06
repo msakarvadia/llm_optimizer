@@ -389,15 +389,17 @@ of harness behavior. We consider four mutation strategies and three sampling str
 	<h2 class="title is-3">Discovery Tasks</h2>
 	<div class="content has-text-justified">
 		<p>
-			We consider five optimization tasks that cover a wide range of domains:
+			We study five discovery tasks that cover a wide range of domains:
 			<ol>
-			  <li><a href="https://www.usenix.org/conference/nsdi24/presentation/wooders">CloudCast</a>: Discover an algorithm to optimize multi-cloud data transfer cost.</li>
-			  <li><a href="https://www.usenix.org/conference/nsdi24/presentation/wu-zhanghao">Can’t Be Late</a>: Discover an algorithm for single spot instance deadline-driven job scheduling</li>
-			  <li> Circle Packing: Discover an algorithm to arrange 26 circles of variable diameters inside a unit square without overlap such that cumulative diameters are maximized.</li>
-			  <li>Traveling Salesperson (TSP): Discover the shortest path that visits 100 cities (with predefined inter-city distances) exactly once and returns to the starting point.</li>
-			  <li>Prompt Optimization: Discover an instruction prompt that enables a downstream LLM to maximize score on the <a href="https://arxiv.org/pdf/2110.14168">GSM8K benchmark</a>.</li>
+			  <li><b><a href="https://www.usenix.org/conference/nsdi24/presentation/wooders">CloudCast</a></b>: Discover an algorithm to optimize multi-cloud data transfer cost.</li>
+			  <li><b><a href="https://www.usenix.org/conference/nsdi24/presentation/wu-zhanghao">Can’t Be Late</a></b>: Discover an algorithm for single spot instance deadline-driven job scheduling</li>
+			  <li><b>Circle Packing</b>: Discover an algorithm to arrange 26 circles of variable diameters inside a unit square without overlap such that cumulative diameters are maximized.</li>
+			  <li><b>Traveling Salesperson (TSP)</b>: Discover the shortest path that visits 100 cities (with predefined inter-city distances) exactly once and returns to the starting point.</li>
+			  <li><b>Prompt Optimization</b>: Discover an instruction prompt that enables a downstream LLM to maximize score on the <a href="https://arxiv.org/pdf/2110.14168">GSM8K benchmark</a>.</li>
 			</ol>
-			
+		We study the discovery success of each task acros <i>multiple</i> LLMs of varying size and performance. Across all tasks we study: 
+		Qwen 3.6 A3B (35B), GPT-OSS (120B), Llama 3.1 Instruct (8B), Gemini 2.5 Flash, Gemini 3.5 Flash, Gemini 3.7 Flash. See the (task, LLM) pairings in the paper.
+		
 		</p>
 	</div>	
 		
