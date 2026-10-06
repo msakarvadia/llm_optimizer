@@ -398,7 +398,7 @@ of harness behavior. We consider four mutation strategies and three sampling str
 			  <li><b>Prompt Optimization</b>: Discover an instruction prompt that enables a downstream LLM to maximize score on the <a href="https://arxiv.org/pdf/2110.14168">GSM8K benchmark</a>.</li>
 			</ol>
 		We study the discovery success of each task acros <i>multiple</i> LLMs of varying size and performance. Across all tasks we study: 
-		Qwen 3.6 A3B (35B), GPT-OSS (120B), Llama 3.1 Instruct (8B), Gemini 2.5 Flash, Gemini 3.5 Flash, Gemini 3.7 Flash. See the (task, LLM) pairings in the paper.
+		Llama 3.1 Instruct (8B), Qwen 3.6 A3B (35B), GPT-OSS (120B), Gemini 2.5 Flash, Gemini 3.5 Flash, Gemini 3.7 Flash. See the (task, LLM) pairings in the paper.
 		
 		</p>
 	</div>	
@@ -421,8 +421,8 @@ discovery objective until the token budget is exhausted. Here, the LLM’s conte
 the LLM’s parametric knowledge base. In parallel discovery, the ceiling for discovery performance is
 not known a priori, as reliably measuring the LLM’s parametric knowledge for discovery tasks is challenging. For example, in the above figure we observe that for TSP, parallel discovery typically underperforms
 sequential Modular harnesses, while for Circle Packing the trend is reversed. On the other hand, sequential harnesses enable LLMs to build on the in-context knowledge from past discoveries, rather
-than relying solely on parametric knowledge. For each task, we observed that multiple Modular harnesses outperformed parallel discovery, but that the specific outperforming Modular variants vary. This
-suggests that sequential refinement of a discovery (with in-context knowledge) can outperform parallel optimization.
+than relying solely on parametric knowledge. For each task, we observed that multiple Modular harnesses outperformed parallel discovery, but that the specific outperforming Modular variants vary. 
+			<b>This suggests that sequential refinement of a discovery (in-context + parametric knowledge) can outperform parallel optimization (only parametric knowledge).</b>
 		
 		</p>
 	</div>
@@ -449,7 +449,7 @@ We wondered if preventing mode collapse could enable better discoveries. To test
 		<br>
 		<img src="static/images/tertiles.png" style="max-width: 50%; width: 100%; height: auto; display: block; margin: 0 auto;" alt="High scoring trajectories have higher initial diversity but eventually experience mode collapse."/>
 		<br>
-		We observe that while high-performing trajectories can be marginally more diverse early on, they too can experience mode collapse over time. 
+		<b>We observe that while high-performing trajectories can be marginally more diverse early on, they too can experience mode collapse over time.</b>
 		This suggests a more nuanced conclusion: in a trajectory with poor initial candidates, mode collapse around those candidates can prevent better ones from ever being discovered, so intervening on the population can help. In contrast, an initially high-performing trajectory may actually be hurt by unnecessary exploration and benefit from more exploitation. 
 		Distinguishing between these two scenarios is challenging, and exploration does not guarantee recovering from poor initial discoveries.
 
@@ -471,9 +471,9 @@ of the first 15 discoveries in a discovery trajectory vs. the maximum downstream
 no specific harness consistently performed well, the highest-performing harnesses for each (task, LLM) pairing tended to be those that produced a high-performing
 initial population.		
 			<br><br>
-Since the eventual success of a sequential trajectory can be correlated with the performance of the first
+<b>Since the eventual success of a sequential trajectory can be correlated with the performance of the first
 few discovered candidates, we posit that it is beneficial to initialize a high-performing population
-of candidates that can better condition downstream sequential optimization. We propose a simple and extensible initialization method
+of candidates that can better condition downstream sequential optimization.</b> We propose a simple and extensible initialization method
 that can be adopted with any sequential discovery harness: first generate a pool of discoveries using
 parallel discovery with a fraction of the discovery budget (r); then curate a performant population pinit of size m by greedily selecting candidates
 from that parallel pool. The intialized pool can be sequentially refined with a discovery harness with the remaining discovery budget.
