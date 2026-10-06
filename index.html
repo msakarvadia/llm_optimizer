@@ -307,7 +307,7 @@
 				<!-- Your image here -->
 				<img src="static/images/initialization_modular.png" alt="Initializing discovery harnesses improves LLM-driven discovery."/>
 				<h2 class="subtitle has-text-centered">
-<b>Initialization raises the floor for discovery under a fixed total token budget.</b> We find that initializing (the Modular) discovery harnesses with a high-performing initial population is beneficial for downstream discovery success across harnesses, tasks, and LLMs. 				
+<b>Initialization raises the floor for discovery under a fixed total token budget.</b> We find that initializing discovery harnesses with a high-performing initial population is beneficial for downstream discovery success across harnesses, tasks, and LLMs. 				
 				</h2>
 				</img>
 			</div>
@@ -428,7 +428,7 @@ We wondered if preventing mode collapse could enable better discoveries. To test
 </ol>
 
 		Our results from state-of-the-art harnesses and diversity interventions show that when harnesses start from the same seed, those that explore more (i.e., maintain more diverse populations) do not reliably produce better-performing discoveries. 
-		For example, in we visually stratify all 72 discovery trajectories for the CloudCast task into tertiles by their best score. 
+		For example, we visually stratify all 72 discovery trajectories for the CloudCast task into tertiles by their best score. 
 		<br>
 		<img src="static/images/tertiles.png" style="max-width: 50%; width: 100%; height: auto; display: block; margin: 0 auto;" alt="High scoring trajectories have higher initial diversity but eventually experience mode collapse."/>
 		<br>
@@ -459,7 +459,7 @@ few discovered candidates, we posit that it is beneficial to initialize a high-p
 of candidates that can better condition downstream sequential optimization. We propose a simple and extensible initialization method
 that can be adopted with any sequential discovery harness: first generate a pool of discoveries using
 parallel discovery with a fraction of the discovery budget (r); then curate a performant population pinit of size m by greedily selecting candidates
-from that parallel pool. The intialized pool can be sequentially refined witha discovery harness with the remaining discovery budget.
+from that parallel pool. The intialized pool can be sequentially refined with a discovery harness with the remaining discovery budget.
 			<br><br>
 	<img src="static/images/initialization.png" alt="Initialized discovery can outperform purely sequential and parallel discovery."/>		
 <br>
