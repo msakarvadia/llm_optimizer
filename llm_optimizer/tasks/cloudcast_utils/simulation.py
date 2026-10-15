@@ -197,7 +197,7 @@ def run_evaluation(
         )
 
 
-EVAL_TIMEOUT_SECONDS = 900
+EVAL_TIMEOUT_SECONDS = 600
 
 
 class EvalTimeoutError(BaseException):

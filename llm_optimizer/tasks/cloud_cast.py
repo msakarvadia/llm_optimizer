@@ -108,6 +108,8 @@ class CloudCast(Task):
         # print(solution)
         program_path = get_program_path(solution)
         score, meta_data = self.evaluate_set(program_path, self.train_set)
+        if score == FAILED_SCORE:  # skip the test set (can also time out)
+            return score, meta_data, FAILED_SCORE
         val_score, _ = self.evaluate_set(program_path, self.test_set)
 
         return score, meta_data, val_score
