@@ -14,7 +14,9 @@ import json
 import logging
 import os
 import shutil
+import signal
 import tempfile
+import threading
 import traceback
 from typing import Any
 
@@ -193,6 +195,44 @@ def run_evaluation(
             f'Error evaluating {os.path.basename(config_file)}: {e}',
             {},
         )
+
+
+EVAL_TIMEOUT_SECONDS = 900
+
+
+class EvalTimeoutError(BaseException):
+    """BaseException so a candidate's `except Exception` can't swallow it."""
+
+
+def run_evaluation_with_timeout(
+    program_path: str,
+    config_file: str,
+    num_vms: int = 2,
+    timeout: int = EVAL_TIMEOUT_SECONDS,
+) -> tuple[bool, float, float, str, dict[str, Any]]:
+    """run_evaluation with a per-config wall-clock limit (main thread only)."""
+    if threading.current_thread() is not threading.main_thread():
+        return run_evaluation(program_path, config_file, num_vms)
+
+    def _raise(signum: int, frame: Any) -> None:
+        raise EvalTimeoutError
+
+    old_handler = signal.signal(signal.SIGALRM, _raise)
+    # Re-fire every 5s so a candidate's bare `except:` can't swallow it once.
+    signal.setitimer(signal.ITIMER_REAL, timeout, 5)
+    try:
+        return run_evaluation(program_path, config_file, num_vms)
+    except EvalTimeoutError:
+        return (
+            False,
+            0.0,
+            0.0,
+            f'Timeout after {timeout}s on {os.path.basename(config_file)}',
+            {},
+        )
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, old_handler)
 
 
 def _load_program_module(program_path: str) -> Any:

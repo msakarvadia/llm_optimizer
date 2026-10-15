@@ -20,7 +20,9 @@ from llm_optimizer.tasks.cloudcast_utils.simulation import (
 )
 from llm_optimizer.tasks.cloudcast_utils.simulation import FAILED_SCORE
 from llm_optimizer.tasks.cloudcast_utils.simulation import get_program_path
-from llm_optimizer.tasks.cloudcast_utils.simulation import run_evaluation
+from llm_optimizer.tasks.cloudcast_utils.simulation import (
+    run_evaluation_with_timeout,
+)
 from llm_optimizer.tasks.cloudcast_utils.simulation import syntax_failure_info
 from llm_optimizer.tasks.cloudcast_utils.simulation import syntax_is_valid
 
@@ -81,10 +83,12 @@ class CloudCast(Task):
             if not syntax_is_valid(program_path):
                 return FAILED_SCORE, syntax_failure_info(example)
 
-            success, cost, transfer_time, error, details = run_evaluation(
-                program_path,
-                example['config_file'],
-                example['num_vms'],
+            success, cost, transfer_time, error, details = (
+                run_evaluation_with_timeout(
+                    program_path,
+                    example['config_file'],
+                    example['num_vms'],
+                )
             )
 
             if not success:
