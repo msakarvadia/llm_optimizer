@@ -262,6 +262,7 @@ class SolutionBank:
         # SentenceTransformer/OpenAI/Task instance depending on
         # sim_thresh/llm_judge, not a plain string.
         self.embedding_model: Any = None
+        self._pool_embeds: dict[str, Any] = {}
         self.llm_judge_client: Any = None
         self.llm_judge_model_name = kwargs.get('llm_judge', '')
         # NOTE(MS): task/task_name feed llm_judge_sim's prompt -- task for
@@ -489,15 +490,28 @@ class SolutionBank:
         if not active_solution_pool:
             return False, None, None
 
-        # NOTE(MS): no caching -- embeds the full active pool + candidate
-        # in a single batched call every time this runs. `solution` is the
-        # query ("is anything in the pool like this") -- see QUERY_PREFIXES.
+        # Pool embeddings are cached by solution text (embedded without the
+        # query prefix); only the candidate is embedded fresh, with the
+        # prefix. batch_size=2: CodeRankEmbed's 8192-token limit makes large
+        # code batches use many GB on CPU (OOM-killed cloudcast runs).
         query_prefix = QUERY_PREFIXES.get(self.embed_model_name, '')
-        embeddings = self.embedding_model.encode(
-            [*active_solution_pool, query_prefix + solution],
+        missing = [
+            s for s in active_solution_pool if s not in self._pool_embeds
+        ]
+        if missing:
+            vecs = self.embedding_model.encode(
+                missing,
+                batch_size=2,
+                convert_to_numpy=True,
+            )
+            self._pool_embeds.update(zip(missing, vecs, strict=True))
+        pool_vecs = np.stack(
+            [self._pool_embeds[s] for s in active_solution_pool],
+        )
+        solution_vec = self.embedding_model.encode(
+            [query_prefix + solution],
             convert_to_numpy=True,
         )
-        pool_vecs, solution_vec = embeddings[:-1], embeddings[-1:]
         sims = cosine_similarity(solution_vec, pool_vecs)[0]
         best_idx = int(sims.argmax())
         sim = float(sims[best_idx])
