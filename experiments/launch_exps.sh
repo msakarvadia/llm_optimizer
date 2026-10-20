@@ -8,7 +8,7 @@ sbatch --time=0-12:00:00 --nodes=1 --cpus-per-task=64 --mem=480000M --gres=gpu:4
 # Job B: CPU-only
 sbatch --time=0-12:00:00 --nodes=1 --cpus-per-task=64 --mem=480000M --gres=gpu:0 \
   --job-name=cpu_only_batch multi_node_ray_launch_exps.sh general_rollout \
-  --task_name cloudcast cantbelate  --num_iter 550 # cloudcast
+  --task_name cloudcast cantbelate tsp  --num_iter 550 # cloudcast
 
 # Job C: CPU-only
 sbatch --time=0-12:00:00 --nodes=1 --cpus-per-task=64 --mem=480000M --gres=gpu:0 \
