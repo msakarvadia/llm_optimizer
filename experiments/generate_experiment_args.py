@@ -640,9 +640,19 @@ def get_args_for_pop_dynamics_prod_grade(
 
     triple = POP_DYNAMICS_PROD_GRADE_TRIPLES[task_name]
     optimizer_llm = triple['optimizer_llm']
-    init_population_path = os.path.join(
+    template_path = os.path.join(
         population_dir,
         triple['init_population_path'],
+    )
+    # Sweep every budget_* dir next to the template's, same greedy filename.
+    init_population_paths = sorted(
+        glob.glob(
+            os.path.join(
+                os.path.dirname(os.path.dirname(template_path)),
+                'budget_*',
+                os.path.basename(template_path),
+            ),
+        ),
     )
 
     real_task_name, benchmark = POP_DYNAMICS_TASK_MAP.get(
@@ -654,7 +664,12 @@ def get_args_for_pop_dynamics_prod_grade(
     max_tokens = TASK_TOKEN_BUDGETS.get(real_task_name)
 
     experiments_to_run = []
-    for inference_model_name, optimizer_name in itertools.product(
+    for (
+        init_population_path,
+        inference_model_name,
+        optimizer_name,
+    ) in itertools.product(
+        init_population_paths,
         inference_model_names,
         ('gepa', 'open_evolve', 'shinka_evolve'),
     ):
