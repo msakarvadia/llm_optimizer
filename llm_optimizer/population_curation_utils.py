@@ -178,12 +178,16 @@ def _pool_candidates_within_budget(  # noqa: C901
             for iter_key in in_budget_keys:
                 entry = bank[iter_key]
                 candidates.append(
-                    {'solution': entry['solution'], 'score': entry['score']},
+                    {
+                        'solution': entry['solution'],
+                        'score': entry['score'],
+                        'val_score': entry.get('val_score'),
+                    },
                 )
         return candidates, total_cost_tokens
 
     better = (lambda a, b: a > b) if dedup == 'max' else (lambda a, b: a < b)
-    best_by_solution: dict[str, float] = {}
+    best_by_solution: dict[str, dict[str, Any]] = {}
     for bank in solution_banks:
         in_budget_keys = [k for k in bank if _in_budget(bank, k)]
         if in_budget_keys:
@@ -196,12 +200,15 @@ def _pool_candidates_within_budget(  # noqa: C901
             solution = entry['solution']
             if solution not in best_by_solution or better(
                 entry['score'],
-                best_by_solution[solution],
+                best_by_solution[solution]['score'],
             ):
-                best_by_solution[solution] = entry['score']
+                best_by_solution[solution] = {
+                    'score': entry['score'],
+                    'val_score': entry.get('val_score'),
+                }
     candidates = [
-        {'solution': solution, 'score': score}
-        for solution, score in best_by_solution.items()
+        {'solution': solution, **data}
+        for solution, data in best_by_solution.items()
     ]
     return candidates, total_cost_tokens
 

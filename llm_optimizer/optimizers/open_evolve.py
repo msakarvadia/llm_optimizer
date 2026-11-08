@@ -315,6 +315,7 @@ class OpenEvolveOptimizer(Optimizer):
         if api_key is None:
             raise ValueError('API key not found.')
         self.config = Config()
+        self.config.random_seed = kwargs['seed']
 
         assert self.config.evaluator.parallel_evaluations == 1, (
             'OpenEvolveOptimizer does not support '

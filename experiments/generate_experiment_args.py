@@ -30,6 +30,15 @@ TASK_DEVICE_PROFILES: dict[str, dict[str, int | float]] = {
     # cores and candidates that finish in ~1s standalone blow past
     # the 600s eval timeout (or segfault under load).
     'circlepacking': {'num_gpus': 0, 'num_cpus': 1},
+    # prompt's lm-eval-harness GSM8K scoring is CPU-heavy per candidate
+    # (unlike parallel_zeroshot's single-shot num_iter=1 calls); at the
+    # default 0.25 share and long-running (num_iter=550) trajectories, the
+    # resulting oversubscription (~4x the real core count) starves client
+    # HTTP connections to the shared vLLM servers of CPU time long enough
+    # to exhaust prompt_lm's retry budget, raising a fatal
+    # openai.APIConnectionError partway through an otherwise-successful
+    # trajectory. num_cpus=1 caps concurrency at the real core count.
+    'prompt': {'num_gpus': 0, 'num_cpus': 1},
 }
 DEFAULT_DEVICE_PROFILE: dict[str, int | float] = {
     'num_gpus': 0,
@@ -59,11 +68,11 @@ TASK_TOKEN_BUDGETS: dict[str, int] = {
 # rest to re-enable the full sweep.
 DIVERSITY_CHECK_VARIANTS: list[dict[str, Any]] = [
     {'sim_thresh': 0.0, 'llm_judge': None},  # no filtering (current default)
-    {'sim_thresh': -1, 'llm_judge': None},  # exact-dedup baseline
-    {'sim_thresh': 0.95, 'llm_judge': None},  # fuzzy, no judge
-    {'sim_thresh': 0.95, 'llm_judge': 'gemini-3.5-flash'},  # fuzzy, judged
-    {'sim_thresh': 0.8, 'llm_judge': None},  # fuzzy, no judge
-    {'sim_thresh': 0.8, 'llm_judge': 'gemini-3.5-flash'},  # fuzzy, judged
+    # {'sim_thresh': -1, 'llm_judge': None},  # exact-dedup baseline
+    # {'sim_thresh': 0.95, 'llm_judge': None},  # fuzzy, no judge
+    # {'sim_thresh': 0.95, 'llm_judge': 'gemini-3.5-flash'},  # fuzzy, judged
+    # {'sim_thresh': 0.8, 'llm_judge': None},  # fuzzy, no judge
+    # {'sim_thresh': 0.8, 'llm_judge': 'gemini-3.5-flash'},  # fuzzy, judged
 ]
 
 # shinka_evolve's own fixed diversity-check config, always on.
@@ -89,8 +98,8 @@ def get_default_optimizer_llms(task_name: str) -> list[str]:
         # maybe llama
         # maybe mistral (smaller)
         return [
-            'gemini-2.5-flash',
-            'gemini-3.5-flash',
+            #'gemini-2.5-flash',
+            #'gemini-3.5-flash',
             #'gemini-3.7-flash',
             'meta-llama/Llama-3.1-8B-Instruct',
         ]
@@ -104,9 +113,9 @@ def get_default_optimizer_llms(task_name: str) -> list[str]:
         ]  # I ran w/ gemini-3.7 (but fails for parallel)
     if task_name == 'tsp':
         return [
-            'gpt-oss-120b',
+            #'gpt-oss-120b',
             'gemini-3.7-flash',
-            'gemini-3.5-flash',
+            #'gemini-3.5-flash',
         ]
     if task_name in ['cloudcast', 'cantbelate']:
         # deepseek
@@ -345,7 +354,7 @@ def run_random_number_bias_experiment(
 # get_args_for_parallel_zeroshot's docstring).
 PARALLEL_ZEROSHOT_NUM_SEEDS: dict[str, int] = {
     'harmbench': 150,
-    'prompt': 1500,
+    'prompt': 2200,
     'cloudcast': 550,
     'cantbelate': 335,
     'tsp': 200,
@@ -367,6 +376,7 @@ def get_args_for_parallel_zeroshot(
     mutators: list[str] | None = None,
     optimizer_llms: list[str] | None = None,
     inference_model_names: list[str] | None = None,
+    benchmarks: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Parallel zero-shot discovery: N independent 1-step OPRO rollouts.
 
@@ -392,7 +402,9 @@ def get_args_for_parallel_zeroshot(
 
     device_profile = get_device_profile(task_name)
 
-    benchmarks = ['drop', 'gsm8k'] if task_name == 'prompt' else ['drop']
+    benchmarks = benchmarks or (
+        ['drop', 'gsm8k'] if task_name == 'prompt' else ['drop']
+    )
 
     experiments_to_run = []
 
@@ -698,5 +710,209 @@ def get_args_for_pop_dynamics_prod_grade(
         if max_tokens is not None:
             config['max_tokens'] = max_tokens
         experiments_to_run.append(config)
+
+    return experiments_to_run
+
+
+# Seeds/population sizes/curation labels shared by the two
+# *_vary_pop_size generators below -- both read curated pools written by
+# llm_optimizer/curate_populations_vary_pop_size.py, laid out as
+# <population_dir>/<task_key>/kincontext/<sanitized_optimizer_llm>/
+# seed<seed>/<curation_label>_m<pop_size>.json (seed is 0-indexed, matching
+# the harness's own --seed, not curate_populations.py's 1-seed-pool
+# convention).
+VARY_POP_SIZE_SEEDS: list[int] = [0, 1, 2]
+VARY_POP_SIZES: list[int] = [15, 30, 45]
+VARY_POP_SIZE_CURATION_LABELS: dict[str, str] = {
+    'greedy': 'diversity_dedup-max_p0.98',
+    'random': 'random_dedup-none',
+}
+
+# Batch 1 scope: prompt_gsm8k/Llama-3.1-8B-Instruct only.
+MODULAR_VARY_POP_SIZE_TASK = 'prompt_gsm8k'
+MODULAR_VARY_POP_SIZE_OPTIMIZER_LLM = 'meta-llama/Llama-3.1-8B-Instruct'
+
+# Batch 2 scope: SOTA harnesses, both prompt_gsm8k and tsp, fixed m=15.
+SOTA_VARY_SEED_TASKS: dict[str, str] = {
+    'prompt_gsm8k': 'meta-llama/Llama-3.1-8B-Instruct',
+    'tsp': 'gemini-3.5-flash',
+}
+SOTA_VARY_SEED_M = 15
+
+
+def _vary_pop_size_population_path(  # noqa: PLR0913
+    population_dir: str,
+    task_key: str,
+    optimizer_llm: str,
+    seed: int,
+    label: str,
+    pop_size: int,
+) -> str:
+    """Path to one curated pool from curate_populations_vary_pop_size.py."""
+    return os.path.join(
+        population_dir,
+        task_key,
+        'kincontext',
+        _sanitize_model_dirname(optimizer_llm),
+        f'seed{seed}',
+        f'{label}_m{pop_size}.json',
+    )
+
+
+def get_args_for_modular_vary_pop_size(
+    population_dir: str,
+    num_iter: int,
+) -> list[dict[str, Any]]:
+    """Batch 1: 12 Modular (OPRO) harnesses x 3 seeds x 3 pop sizes x 3 init.
+
+    For prompt_gsm8k/Llama-3.1-8B-Instruct only. Per (sampling_strategy,
+    mutator, seed, pop_size) -- 3 x 4 x 3 x 3 = 108 base configs -- emits
+    three init-condition variants: uninitialized (no init_population_path,
+    max_population_size=pop_size), greedy (diversity_dedup-max_p0.98,
+    p=0.98, 25% budget), and random (random_dedup-none) -- both initialized
+    variants seeded from the curated pool matching pop_size exactly, and
+    max_population_size matched to that same pop_size. 108 x 3 = 324 total.
+    """
+    sampling_strategies = ['highest_scoring', 'tournament', 'wheel']
+    mutators = ['kincontext', 'DE', 'GA', 'GEPA']
+
+    task_key = MODULAR_VARY_POP_SIZE_TASK
+    optimizer_llm = MODULAR_VARY_POP_SIZE_OPTIMIZER_LLM
+    real_task_name, benchmark = POP_DYNAMICS_TASK_MAP.get(
+        task_key,
+        (task_key, 'drop'),
+    )
+    inference_model_name = get_default_inference_model_names(real_task_name)[0]
+    device_profile = get_device_profile(real_task_name)
+    max_tokens = TASK_TOKEN_BUDGETS.get(real_task_name)
+
+    experiments_to_run = []
+    for strategy, mutator, seed, pop_size in itertools.product(
+        sampling_strategies,
+        mutators,
+        VARY_POP_SIZE_SEEDS,
+        VARY_POP_SIZES,
+    ):
+        n = get_kincontext_n(real_task_name) if mutator == 'kincontext' else 5
+        base_config: dict[str, Any] = {
+            'optimizer_name': 'opro',
+            'optimizer_llm': optimizer_llm,
+            'task_name': real_task_name,
+            'pruning_strategy': 'lowest_scoring',
+            'sampling_strategy_name': strategy,
+            'mutator': mutator,
+            'noise': 0,
+            'num_iter': num_iter,
+            'benchmark': benchmark,
+            'sampling_prob': 0.5,
+            'n': n,
+            'seed': seed,
+            'inference_model_name': inference_model_name,
+            'max_population_size': pop_size,
+            'sim_thresh': 0,
+            **device_profile,
+        }
+        if max_tokens is not None:
+            base_config['max_tokens'] = max_tokens
+
+        # 1) uninitialized -- no init_population_path, same pop_size cap.
+        experiments_to_run.append(dict(base_config))
+
+        # 2)+3) initialized (greedy, random), pool size matched to pop_size.
+        for label in VARY_POP_SIZE_CURATION_LABELS.values():
+            pop_path = _vary_pop_size_population_path(
+                population_dir,
+                task_key,
+                optimizer_llm,
+                seed,
+                label,
+                pop_size,
+            )
+            if not os.path.exists(pop_path):
+                print(f'missing curated population, skipping: {pop_path}')
+                continue
+            experiments_to_run.append(
+                {**base_config, 'init_population_path': pop_path},
+            )
+
+    return experiments_to_run
+
+
+def get_args_for_sota_vary_seed(
+    population_dir: str,
+    num_iter: int,
+) -> list[dict[str, Any]]:
+    """Batch 2: OA/OE/SE harnesses x 2 tasks x 3 seeds x 3 init, m=15 fixed.
+
+    Per (task, seed, optimizer_name) -- 2 x 3 x 3 = 18 base configs -- emits
+    three init-condition variants (uninitialized, greedy
+    diversity_dedup-max_p0.98, random random_dedup-none), all at the fixed
+    m=15 curated pool size. 18 x 3 = 54 total.
+    """
+    experiments_to_run = []
+    for task_key, optimizer_llm in SOTA_VARY_SEED_TASKS.items():
+        real_task_name, benchmark = POP_DYNAMICS_TASK_MAP.get(
+            task_key,
+            (task_key, 'drop'),
+        )
+        inference_model_name = get_default_inference_model_names(
+            real_task_name,
+        )[0]
+        device_profile = get_device_profile(real_task_name)
+        max_tokens = TASK_TOKEN_BUDGETS.get(real_task_name)
+        embed_model = get_embed_model(real_task_name)
+
+        for seed in VARY_POP_SIZE_SEEDS:
+            base_config: dict[str, Any] = {
+                'optimizer_llm': optimizer_llm,
+                'task_name': real_task_name,
+                'pruning_strategy': 'lowest_scoring',
+                'noise': 0,
+                'num_iter': num_iter,
+                'benchmark': benchmark,
+                'seed': seed,
+                'inference_model_name': inference_model_name,
+                'max_population_size': SOTA_VARY_SEED_M,
+                **device_profile,
+            }
+            if max_tokens is not None:
+                base_config['max_tokens'] = max_tokens
+
+            for optimizer_name in ('gepa', 'open_evolve', 'shinka_evolve'):
+                extra = (
+                    {**SHINKA_DIVERSITY_CONFIG, 'embed_model': embed_model}
+                    if optimizer_name == 'shinka_evolve'
+                    else {}
+                )
+
+                # 1) uninitialized
+                experiments_to_run.append(
+                    {**base_config, 'optimizer_name': optimizer_name, **extra},
+                )
+
+                # 2)+3) initialized (greedy, random), fixed m=15.
+                for label in VARY_POP_SIZE_CURATION_LABELS.values():
+                    pop_path = _vary_pop_size_population_path(
+                        population_dir,
+                        task_key,
+                        optimizer_llm,
+                        seed,
+                        label,
+                        SOTA_VARY_SEED_M,
+                    )
+                    if not os.path.exists(pop_path):
+                        print(
+                            f'missing curated population, skipping: '
+                            f'{pop_path}',
+                        )
+                        continue
+                    experiments_to_run.append(
+                        {
+                            **base_config,
+                            'optimizer_name': optimizer_name,
+                            **extra,
+                            'init_population_path': pop_path,
+                        },
+                    )
 
     return experiments_to_run

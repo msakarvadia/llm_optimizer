@@ -13,10 +13,12 @@ from typing import Any
 
 import ray
 import yaml
+from generate_experiment_args import get_args_for_modular_vary_pop_size
 from generate_experiment_args import get_args_for_parallel_zeroshot
 from generate_experiment_args import get_args_for_pop_dynamics
 from generate_experiment_args import get_args_for_pop_dynamics_prod_grade
 from generate_experiment_args import get_args_for_roll_outs
+from generate_experiment_args import get_args_for_sota_vary_seed
 from generate_experiment_args import run_random_number_bias_experiment
 
 from llm_optimizer.utils import get_shared_vllm_requirements
@@ -123,7 +125,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '--experiment_name',
         type=str,
-        default='general_rollout',
+        nargs='+',
+        default=['general_rollout'],
         choices=[
             'general_rollout',
             'population_dynamics',
@@ -131,8 +134,19 @@ if __name__ == '__main__':
             'perturb',
             'random_number_bias',
             'parallel_zeroshot',
+            'modular_vary_pop_size',
+            'sota_vary_seed',
         ],
-        help='Name of experiment.',
+        help=(
+            'Experiment(s) to run. Accepts multiple values -- all are '
+            'batched into one Ray cluster / experiments list before the '
+            'shared-vLLM dedup step, so e.g. modular_vary_pop_size and '
+            'sota_vary_seed sharing Llama-3.1-8B-Instruct + '
+            'OLMo-2-0425-1B-SFT run off the same two vLLM servers instead '
+            'of each starting (and tearing down) their own. '
+            'random_number_bias bypasses Ray entirely and must be the '
+            'only value if requested.'
+        ),
     )
     parser.add_argument(
         '--task_name',
@@ -185,9 +199,35 @@ if __name__ == '__main__':
             'prompt -> Llama-3.2-1B-Instruct, else -> gemma-4-E4B-it.'
         ),
     )
+    parser.add_argument(
+        '--mutator',
+        type=str,
+        nargs='+',
+        default=None,
+        help=(
+            'parallel_zeroshot only: mutator(s) to sweep. If unset, '
+            'defaults to PARALLEL_ZEROSHOT_MUTATORS (kincontext, GEPA).'
+        ),
+    )
+    parser.add_argument(
+        '--benchmark',
+        type=str,
+        nargs='+',
+        default=None,
+        help=(
+            "parallel_zeroshot only: benchmark(s) for task_name='prompt'. "
+            "If unset, defaults to ['drop', 'gsm8k']."
+        ),
+    )
     args = parser.parse_args()
 
-    if args.experiment_name == 'random_number_bias':
+    if 'random_number_bias' in args.experiment_name:
+        if len(args.experiment_name) != 1:
+            raise ValueError(
+                'random_number_bias bypasses the Ray/vLLM path entirely '
+                "and can't be combined with other --experiment_name "
+                'values in one invocation.',
+            )
         # Standalone probe: direct LLM calls, no Task/optimizer/main.py,
         # so it skips the Ray cluster + subprocess launch path entirely.
         run_random_number_bias_experiment()
@@ -231,56 +271,115 @@ if __name__ == '__main__':
     print('\n--- Launching Experiments ---')
 
     experiments: list[dict[str, Any]] = []
-    for task_name in args.task_name:
-        if args.experiment_name == 'general_rollout':
-            experiments.extend(
-                get_args_for_roll_outs(
-                    task_name=task_name,
-                    num_iter=args.num_iter,
-                    inference_model_names=args.inference_model_name,
-                    optimizer_llms=args.optimizer_llm,
-                ),
-            )
-        elif args.experiment_name == 'population_dynamics':
+    for experiment_name in args.experiment_name:
+        # Collected per experiment_name, then tagged with its own
+        # experiment_dir below -- this is what lets several experiment_names
+        # share one combined `experiments` list (and therefore one Ray
+        # cluster / shared-vLLM dedup pass below) while still writing each
+        # batch's runs under its own top-level output directory, exactly as
+        # if it had been launched in its own invocation.
+        batch: list[dict[str, Any]] = []
+
+        if experiment_name == 'modular_vary_pop_size':
+            # Fixed scope (prompt_gsm8k/Llama-3.1-8B-Instruct, 3 seeds x 3
+            # pop sizes) -- task-agnostic, so this runs once rather than
+            # per --task_name.
             population_dir = args.population_dir or (
-                os.path.join(project_root, 'curated_initial_populations_v2')
+                os.path.join(
+                    project_root,
+                    'llm_optimizer',
+                    'populations_vary_pop_size',
+                )
             )
-            experiments.extend(
-                get_args_for_pop_dynamics(
+            batch.extend(
+                get_args_for_modular_vary_pop_size(
                     population_dir,
-                    task_name=task_name,
                     num_iter=args.num_iter,
                 ),
             )
-        elif args.experiment_name == 'population_dynamics_prod_grade':
+        elif experiment_name == 'sota_vary_seed':
+            # Fixed scope (OA/OE/SE x prompt_gsm8k+tsp, 3 seeds, m=15) --
+            # task-agnostic, so this runs once rather than per --task_name.
             population_dir = args.population_dir or (
-                os.path.join(project_root, 'llm_optimizer', 'populations')
+                os.path.join(
+                    project_root,
+                    'llm_optimizer',
+                    'populations_vary_pop_size',
+                )
             )
-            experiments.extend(
-                get_args_for_pop_dynamics_prod_grade(
+            batch.extend(
+                get_args_for_sota_vary_seed(
                     population_dir,
-                    task_name=task_name,
                     num_iter=args.num_iter,
                 ),
             )
-        elif args.experiment_name == 'perturb':
-            population_dir = args.population_dir or (
-                os.path.join(project_root, 'curated_perturbation_populations')
-            )
-            experiments.extend(
-                get_args_for_pop_dynamics(
-                    population_dir,
-                    task_name=task_name,
-                    num_iter=args.num_iter,
-                ),
-            )
-        elif args.experiment_name == 'parallel_zeroshot':
-            experiments.extend(
-                get_args_for_parallel_zeroshot(
-                    task_name=task_name,
-                    optimizer_llms=args.optimizer_llm,
-                ),
-            )
+        else:
+            for task_name in args.task_name:
+                if experiment_name == 'general_rollout':
+                    batch.extend(
+                        get_args_for_roll_outs(
+                            task_name=task_name,
+                            num_iter=args.num_iter,
+                            inference_model_names=args.inference_model_name,
+                            optimizer_llms=args.optimizer_llm,
+                        ),
+                    )
+                elif experiment_name == 'population_dynamics':
+                    population_dir = args.population_dir or (
+                        os.path.join(
+                            project_root,
+                            'curated_initial_populations_v2',
+                        )
+                    )
+                    batch.extend(
+                        get_args_for_pop_dynamics(
+                            population_dir,
+                            task_name=task_name,
+                            num_iter=args.num_iter,
+                        ),
+                    )
+                elif experiment_name == 'population_dynamics_prod_grade':
+                    population_dir = args.population_dir or (
+                        os.path.join(
+                            project_root,
+                            'llm_optimizer',
+                            'populations',
+                        )
+                    )
+                    batch.extend(
+                        get_args_for_pop_dynamics_prod_grade(
+                            population_dir,
+                            task_name=task_name,
+                            num_iter=args.num_iter,
+                        ),
+                    )
+                elif experiment_name == 'perturb':
+                    population_dir = args.population_dir or (
+                        os.path.join(
+                            project_root,
+                            'curated_perturbation_populations',
+                        )
+                    )
+                    batch.extend(
+                        get_args_for_pop_dynamics(
+                            population_dir,
+                            task_name=task_name,
+                            num_iter=args.num_iter,
+                        ),
+                    )
+                elif experiment_name == 'parallel_zeroshot':
+                    batch.extend(
+                        get_args_for_parallel_zeroshot(
+                            task_name=task_name,
+                            optimizer_llms=args.optimizer_llm,
+                            mutators=args.mutator,
+                            benchmarks=args.benchmark,
+                        ),
+                    )
+
+        for exp in batch:
+            exp['experiment_dir'] = experiment_name
+        experiments.extend(batch)
     print(f'{len(experiments)=}')
 
     # Shuffle submission order so task_names interleave (Ray otherwise
@@ -358,9 +457,8 @@ if __name__ == '__main__':
         # futures
         futures = []
         for exp in experiments:
-            # add experiment_name as the meta_dir
-            # to store the experiments in
-            exp['experiment_dir'] = args.experiment_name
+            # experiment_dir is already stamped per-batch above (each
+            # experiment_name's own output directory), not reassigned here.
             obj_ref = run_experiment.options(
                 num_gpus=exp['num_gpus'],
                 num_cpus=exp['num_cpus'],

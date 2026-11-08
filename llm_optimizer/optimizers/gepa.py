@@ -208,7 +208,7 @@ class GEPAOptimizer(Optimizer):
         # TODO(MS): impl convergence criteria
 
         # rng = np.random.default_rng(seed=42)
-        rng = random.Random(42)
+        rng = random.Random(self.solution_bank.seed)
 
         stop_callbacks = None
         if max_tokens is not None:
